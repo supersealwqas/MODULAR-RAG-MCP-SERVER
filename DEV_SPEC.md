@@ -1959,10 +1959,10 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| B1 | LLM 抽象接口与工厂 | [ ] | | |
-| B2 | Embedding 抽象接口与工厂 | [ ] | | |
-| B3 | Splitter 抽象接口与工厂 | [ ] | | |
-| B4 | VectorStore 抽象接口与工厂 | [ ] | | |
+| B1 | LLM 抽象接口与工厂 | [x] | 2026-05-14 | BaseLLM抽象类、LLMFactory、@register_llm装饰器 |
+| B2 | Embedding 抽象接口与工厂 | [x] | 2026-05-14 | BaseEmbedding抽象类、EmbeddingFactory、@register_embedding装饰器 |
+| B3 | Splitter 抽象接口与工厂 | [x] | 2026-05-14 | BaseSplitter抽象类、SplitterFactory、@register_splitter装饰器 |
+| B4 | VectorStore 抽象接口与工厂 | [x] | 2026-05-14 | BaseVectorStore抽象类、VectorRecord/QueryResult数据类、VectorStoreFactory |
 | B5 | Reranker 抽象接口与工厂（含 None 回退） | [ ] | | |
 | B6 | Evaluator 抽象接口与工厂 | [ ] | | |
 | B7.1 | OpenAI-Compatible LLM 实现 | [ ] | | |

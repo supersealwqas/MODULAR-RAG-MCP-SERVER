@@ -1,7 +1,8 @@
 llm:
   provider: "openai"
-  model: "gpt-4o"
-  api_key: ""
+  model: "deepseek-v4-flash"
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  api_key: "sk-16fc34cf13e14338bc005eb5937a6d64"
   temperature: 0.0
   max_tokens: 4096
 

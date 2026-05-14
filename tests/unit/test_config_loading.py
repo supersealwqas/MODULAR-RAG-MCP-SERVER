@@ -24,11 +24,12 @@ class TestLoadSettings:
     """Test load_settings function."""
 
     def test_load_default_config(self):
-        """Should load default settings.yaml successfully."""
+        """应成功加载默认 settings.yaml 配置。"""
         settings = load_settings()
         assert isinstance(settings, Settings)
         assert settings.llm.provider == "openai"
-        assert settings.llm.model == "gpt-4o"
+        assert settings.llm.model == "deepseek-v4-flash"
+        assert settings.llm.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
         assert settings.embedding.provider == "openai"
         assert settings.vector_store.provider == "chroma"
 
@@ -46,16 +47,16 @@ class TestLoadSettings:
         assert settings.llm.provider == "test"
 
     def test_file_not_found(self):
-        """Should raise FileNotFoundError for missing file."""
-        with pytest.raises(FileNotFoundError, match="Settings file not found"):
+        """文件不存在时应抛出 FileNotFoundError。"""
+        with pytest.raises(FileNotFoundError, match="配置文件不存在"):
             load_settings("nonexistent.yaml")
 
     def test_invalid_yaml(self, tmp_path):
-        """Should raise ValueError for non-dict YAML."""
+        """非字典 YAML 应抛出 ValueError。"""
         config_file = tmp_path / "bad.yaml"
         config_file.write_text("- item1\n- item2")
 
-        with pytest.raises(ValueError, match="must contain a YAML mapping"):
+        with pytest.raises(ValueError, match="YAML 映射"):
             load_settings(str(config_file))
 
 

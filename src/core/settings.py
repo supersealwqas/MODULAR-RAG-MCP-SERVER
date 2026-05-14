@@ -1,4 +1,8 @@
-"""Configuration loading and validation for Modular RAG MCP Server."""
+"""配置加载与校验模块。
+
+负责读取 config/settings.yaml 配置文件，解析为结构化的 Settings 对象，
+并在启动时校验必填字段是否存在。
+"""
 
 from __future__ import annotations
 
@@ -11,9 +15,19 @@ import yaml
 
 @dataclass
 class LLMConfig:
-    """LLM provider configuration."""
+    """LLM 提供者配置。
+
+    属性:
+        provider: 提供者名称（如 "openai"、"ollama"）
+        model: 模型名称（如 "gpt-4o"、"deepseek-v4-flash"）
+        base_url: API 基础 URL（兼容 OpenAI 格式的自定义端点）
+        api_key: API 密钥
+        temperature: 生成温度，控制随机性（0.0-2.0）
+        max_tokens: 最大生成 token 数
+    """
     provider: str
     model: str
+    base_url: str = ""
     api_key: str = ""
     temperature: float = 0.0
     max_tokens: int = 4096
@@ -21,7 +35,14 @@ class LLMConfig:
 
 @dataclass
 class EmbeddingConfig:
-    """Embedding provider configuration."""
+    """Embedding 提供者配置。
+
+    属性:
+        provider: 提供者名称（如 "openai"、"local"）
+        model: 嵌入模型名称
+        dimensions: 向量维度
+        api_key: API 密钥
+    """
     provider: str
     model: str
     dimensions: int = 1536
@@ -30,21 +51,38 @@ class EmbeddingConfig:
 
 @dataclass
 class VectorStoreConfig:
-    """Vector store configuration."""
+    """向量存储配置。
+
+    属性:
+        provider: 存储提供者（如 "chroma"）
+        persist_directory: 持久化目录路径
+    """
     provider: str
     persist_directory: str = "data/db/chroma"
 
 
 @dataclass
 class RetrievalConfig:
-    """Retrieval pipeline configuration."""
+    """检索管线配置。
+
+    属性:
+        top_k: 返回的最大结果数
+        hybrid: 是否启用混合检索（Dense + Sparse）
+    """
     top_k: int = 10
     hybrid: bool = True
 
 
 @dataclass
 class RerankConfig:
-    """Reranker configuration."""
+    """重排序器配置。
+
+    属性:
+        enabled: 是否启用重排序
+        provider: 重排序提供者（如 "cross-encoder"、"llm"、"none"）
+        model: 重排序模型名称
+        top_k: 重排序后保留的结果数
+    """
     enabled: bool = False
     provider: str = "none"
     model: str = ""
@@ -53,20 +91,39 @@ class RerankConfig:
 
 @dataclass
 class EvaluationConfig:
-    """Evaluation configuration."""
+    """评估框架配置。
+
+    属性:
+        backends: 评估后端列表（如 ["ragas", "custom"]）
+    """
     backends: List[str] = field(default_factory=lambda: ["custom"])
 
 
 @dataclass
 class ObservabilityConfig:
-    """Observability configuration."""
+    """可观测性配置。
+
+    属性:
+        log_level: 日志级别（DEBUG、INFO、WARNING、ERROR）
+        traces_file: 追踪日志文件路径（JSONL 格式）
+    """
     log_level: str = "INFO"
     traces_file: str = "logs/traces.jsonl"
 
 
 @dataclass
 class Settings:
-    """Root settings container."""
+    """根配置容器，包含所有子系统配置。
+
+    属性:
+        llm: LLM 配置
+        embedding: Embedding 配置
+        vector_store: 向量存储配置
+        retrieval: 检索配置
+        rerank: 重排序配置
+        evaluation: 评估配置
+        observability: 可观测性配置
+    """
     llm: LLMConfig
     embedding: EmbeddingConfig
     vector_store: VectorStoreConfig
@@ -77,27 +134,27 @@ class Settings:
 
 
 def load_settings(path: str = "config/settings.yaml") -> Settings:
-    """Load and validate settings from YAML file.
+    """加载并校验配置文件。
 
-    Args:
-        path: Path to settings YAML file.
+    参数:
+        path: 配置文件路径，默认为 config/settings.yaml
 
-    Returns:
-        Validated Settings object.
+    返回:
+        校验通过的 Settings 对象
 
-    Raises:
-        FileNotFoundError: If settings file not found.
-        ValueError: If required fields are missing or invalid.
+    异常:
+        FileNotFoundError: 配置文件不存在
+        ValueError: 必填字段缺失或格式错误
     """
     settings_path = Path(path)
     if not settings_path.exists():
-        raise FileNotFoundError(f"Settings file not found: {path}")
+        raise FileNotFoundError(f"配置文件不存在: {path}")
 
     with open(settings_path, "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     if not isinstance(raw, dict):
-        raise ValueError(f"Settings file must contain a YAML mapping, got {type(raw).__name__}")
+        raise ValueError(f"配置文件必须包含 YAML 映射，实际类型: {type(raw).__name__}")
 
     settings = _parse_settings(raw)
     validate_settings(settings)
@@ -105,7 +162,14 @@ def load_settings(path: str = "config/settings.yaml") -> Settings:
 
 
 def _parse_settings(raw: dict) -> Settings:
-    """Parse raw dict into Settings dataclass."""
+    """将原始字典解析为 Settings 数据类。
+
+    参数:
+        raw: 从 YAML 解析的原始字典
+
+    返回:
+        Settings 对象，缺失字段使用默认值
+    """
     llm_raw = raw.get("llm", {})
     embedding_raw = raw.get("embedding", {})
     vector_store_raw = raw.get("vector_store", {})
@@ -118,6 +182,7 @@ def _parse_settings(raw: dict) -> Settings:
         llm=LLMConfig(
             provider=llm_raw.get("provider", ""),
             model=llm_raw.get("model", ""),
+            base_url=llm_raw.get("base_url", ""),
             api_key=llm_raw.get("api_key", ""),
             temperature=llm_raw.get("temperature", 0.0),
             max_tokens=llm_raw.get("max_tokens", 4096),
@@ -153,13 +218,13 @@ def _parse_settings(raw: dict) -> Settings:
 
 
 def validate_settings(settings: Settings) -> None:
-    """Validate required fields in settings.
+    """校验配置中的必填字段。
 
-    Args:
-        settings: Settings object to validate.
+    参数:
+        settings: 待校验的 Settings 对象
 
-    Raises:
-        ValueError: If required fields are missing.
+    异常:
+        ValueError: 必填字段缺失时抛出，错误信息包含字段路径（如 "llm.provider"）
     """
     errors = []
 
@@ -175,4 +240,4 @@ def validate_settings(settings: Settings) -> None:
         errors.append("vector_store.provider")
 
     if errors:
-        raise ValueError(f"Missing required settings: {', '.join(errors)}")
+        raise ValueError(f"缺失必填配置: {', '.join(errors)}")

@@ -1,4 +1,7 @@
-"""Logging utilities for Modular RAG MCP Server."""
+"""日志工具模块。
+
+提供统一的日志配置和获取接口。
+"""
 
 from __future__ import annotations
 
@@ -7,18 +10,21 @@ import sys
 
 
 def get_logger(name: str, level: str = "INFO") -> logging.Logger:
-    """Get a configured logger instance.
+    """获取配置好的日志实例。
 
-    Args:
-        name: Logger name (typically module name).
-        level: Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+    日志输出到 stderr，格式包含时间戳、模块名、级别和消息。
 
-    Returns:
-        Configured logger instance.
+    参数:
+        name: 日志名称，通常为模块名（如 __name__）
+        level: 日志级别字符串，可选值: DEBUG、INFO、WARNING、ERROR、CRITICAL
+
+    返回:
+        配置好的 logging.Logger 实例
     """
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
 
+    # 避免重复添加 handler
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stderr)
         handler.setFormatter(
