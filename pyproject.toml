@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modular-rag-mcp-server"
+version = "0.1.0"
+description = "Modular RAG MCP Server — pluggable, observable RAG framework with MCP protocol"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "pyyaml>=6.0",
+    "chromadb>=0.4.0",
+    "openai>=1.0.0",
+    "streamlit>=1.30.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (may use external services)",
+    "e2e: End-to-end tests (full pipeline)",
+]

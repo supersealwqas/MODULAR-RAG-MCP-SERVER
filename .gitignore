@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Environment Variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Data
+data/db/
+data/images/
+data/bm25/
+data/chroma/
+cache/
+logs/
+*.db
+*.jsonl
+
+# ChromaDB
+chroma/
+
+# Pickle
+*.pkl
+*.pickle
+
+# uv
+uv.lock

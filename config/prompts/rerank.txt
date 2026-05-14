@@ -1,0 +1,7 @@
+Given the query and a list of document passages, rank them by relevance.
+Return the passage IDs in order from most relevant to least relevant.
+
+Query: {query}
+
+Passages:
+{passages}

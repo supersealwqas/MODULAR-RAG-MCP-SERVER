@@ -1,0 +1,5 @@
+Clean up the following text chunk by removing noise (page headers, footers, formatting artifacts)
+while preserving all meaningful content. Return only the cleaned text.
+
+Text:
+{text}
