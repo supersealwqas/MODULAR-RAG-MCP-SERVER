@@ -1963,7 +1963,7 @@ dashboard:
 | B2 | Embedding 抽象接口与工厂 | [x] | 2026-05-14 | BaseEmbedding抽象类、EmbeddingFactory、@register_embedding装饰器 |
 | B3 | Splitter 抽象接口与工厂 | [x] | 2026-05-14 | BaseSplitter抽象类、SplitterFactory、@register_splitter装饰器 |
 | B4 | VectorStore 抽象接口与工厂 | [x] | 2026-05-14 | BaseVectorStore抽象类、VectorRecord/QueryResult数据类、VectorStoreFactory |
-| B5 | Reranker 抽象接口与工厂（含 None 回退） | [ ] | | |
+| B5 | Reranker 抽象接口与工厂（含 None 回退） | [x] | 2026-05-14 | BaseReranker抽象类、NoneReranker回退、Candidate/RankedCandidate数据类 |
 | B6 | Evaluator 抽象接口与工厂 | [ ] | | |
 | B7.1 | OpenAI-Compatible LLM 实现 | [ ] | | |
 | B7.2 | Ollama LLM 实现 | [ ] | | |
