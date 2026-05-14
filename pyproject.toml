@@ -13,6 +13,11 @@ dependencies = [
     "chromadb>=0.4.0",
     "openai>=1.0.0",
     "streamlit>=1.30.0",
+    "sentence-transformers>=3.0.0",
+    "transformers>=4.40.0,<5.0.0",
+    "tokenizers>=0.19.0,<0.23.0",
+    "httpx>=0.24.0",
+    "torch>=2.6.0",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +25,14 @@ dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.10.0",
 ]
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cuda" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

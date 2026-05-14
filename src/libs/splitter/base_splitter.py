@@ -17,7 +17,7 @@ class BaseSplitter(ABC):
     提供 `split_texts` 便捷方法用于批量切分场景。
     """
 
-    def __init__(self, chunk_size: int = 512, chunk_overlap: int = 50, **kwargs):
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, **kwargs):
         """初始化切分器实例。
 
         参数:

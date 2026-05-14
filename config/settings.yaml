@@ -1,15 +1,30 @@
 llm:
   provider: "openai"
-  model: "deepseek-v4-flash"
-  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  api_key: "sk-16fc34cf13e14338bc005eb5937a6d64"
+  model: "mimo-v2.5-pro"
+  base_url: "https://token-plan-cn.xiaomimimo.com/v1"
+  api_key: "tp-c5fbolasp2e1oudhm6fz4niwuqzcakcg55w0xi5gi16ukyr5"
+  temperature: 0.0
+  max_tokens: 4096
+
+vision_llm:
+  provider: "openai"
+  model: "mimo-v2.5"
+  base_url: "https://token-plan-cn.xiaomimimo.com/v1"
+  api_key: "tp-c5fbolasp2e1oudhm6fz4niwuqzcakcg55w0xi5gi16ukyr5"
+  temperature: 0.0
+  max_tokens: 4096
+
+ollama:
+  model: "gemma4"
+  base_url: "http://localhost:11434"
   temperature: 0.0
   max_tokens: 4096
 
 embedding:
-  provider: "openai"
-  model: "text-embedding-ada-002"
-  dimensions: 1536
+  provider: "bge"
+  model: "bge-m3"
+  dimensions: 1024
+  model_path: "models/bge-m3"
   api_key: ""
 
 vector_store:

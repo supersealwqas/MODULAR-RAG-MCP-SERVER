@@ -61,6 +61,7 @@ class EmbeddingFactory:
             model=config.model,
             dimensions=config.dimensions,
             api_key=config.api_key,
+            model_path=getattr(config, "model_path", ""),
         )
 
     @staticmethod

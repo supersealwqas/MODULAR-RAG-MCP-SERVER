@@ -34,19 +34,37 @@ class LLMConfig:
 
 
 @dataclass
+class OllamaConfig:
+    """Ollama 本地模型配置。
+
+    属性:
+        model: 模型名称（如 "gemma4"、"llama3"、"qwen2"）
+        base_url: Ollama 服务地址（默认 http://localhost:11434）
+        temperature: 生成温度（0.0-2.0）
+        max_tokens: 最大生成 token 数
+    """
+    model: str = "gemma4"
+    base_url: str = "http://localhost:11434"
+    temperature: float = 0.0
+    max_tokens: int = 4096
+
+
+@dataclass
 class EmbeddingConfig:
     """Embedding 提供者配置。
 
     属性:
-        provider: 提供者名称（如 "openai"、"local"）
+        provider: 提供者名称（如 "openai"、"bge"、"ollama"）
         model: 嵌入模型名称
         dimensions: 向量维度
         api_key: API 密钥
+        model_path: 本地模型路径（用于 BGE 等本地模型）
     """
     provider: str
     model: str
     dimensions: int = 1536
     api_key: str = ""
+    model_path: str = ""
 
 
 @dataclass
@@ -125,6 +143,7 @@ class Settings:
         observability: 可观测性配置
     """
     llm: LLMConfig
+    ollama: OllamaConfig
     embedding: EmbeddingConfig
     vector_store: VectorStoreConfig
     retrieval: RetrievalConfig
@@ -171,6 +190,7 @@ def _parse_settings(raw: dict) -> Settings:
         Settings 对象，缺失字段使用默认值
     """
     llm_raw = raw.get("llm", {})
+    ollama_raw = raw.get("ollama", {})
     embedding_raw = raw.get("embedding", {})
     vector_store_raw = raw.get("vector_store", {})
     retrieval_raw = raw.get("retrieval", {})
@@ -187,11 +207,18 @@ def _parse_settings(raw: dict) -> Settings:
             temperature=llm_raw.get("temperature", 0.0),
             max_tokens=llm_raw.get("max_tokens", 4096),
         ),
+        ollama=OllamaConfig(
+            model=ollama_raw.get("model", "gemma4"),
+            base_url=ollama_raw.get("base_url", "http://localhost:11434"),
+            temperature=ollama_raw.get("temperature", 0.0),
+            max_tokens=ollama_raw.get("max_tokens", 4096),
+        ),
         embedding=EmbeddingConfig(
             provider=embedding_raw.get("provider", ""),
             model=embedding_raw.get("model", ""),
             dimensions=embedding_raw.get("dimensions", 1536),
             api_key=embedding_raw.get("api_key", ""),
+            model_path=embedding_raw.get("model_path", ""),
         ),
         vector_store=VectorStoreConfig(
             provider=vector_store_raw.get("provider", ""),

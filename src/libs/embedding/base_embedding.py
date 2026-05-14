@@ -16,18 +16,20 @@ class BaseEmbedding(ABC):
     提供 `embed_single` 便捷方法用于单文本嵌入场景。
     """
 
-    def __init__(self, model: str, dimensions: int = 1536, api_key: str = "", **kwargs):
+    def __init__(self, model: str, dimensions: int = 1536, api_key: str = "", model_path: str = "", **kwargs):
         """初始化 Embedding 实例。
 
         参数:
-            model: 嵌入模型名称（如 "text-embedding-ada-002"）
+            model: 嵌入模型名称（如 "text-embedding-ada-002"、"bge-m3"）
             dimensions: 输出向量维度
             api_key: API 密钥（可选，部分本地模型不需要）
+            model_path: 本地模型路径（用于 BGE 等本地模型）
             **kwargs: 其他提供者特定参数
         """
         self.model = model
         self.dimensions = dimensions
         self.api_key = api_key
+        self.model_path = model_path
 
     @abstractmethod
     def embed(self, texts: List[str], **kwargs) -> List[List[float]]:

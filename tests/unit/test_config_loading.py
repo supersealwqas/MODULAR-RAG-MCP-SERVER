@@ -10,6 +10,7 @@ from src.core.settings import (
     validate_settings,
     _parse_settings,
     LLMConfig,
+    OllamaConfig,
     EmbeddingConfig,
     VectorStoreConfig,
     RetrievalConfig,
@@ -28,9 +29,9 @@ class TestLoadSettings:
         settings = load_settings()
         assert isinstance(settings, Settings)
         assert settings.llm.provider == "openai"
-        assert settings.llm.model == "deepseek-v4-flash"
-        assert settings.llm.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        assert settings.embedding.provider == "openai"
+        assert settings.llm.model == "mimo-v2.5-pro"
+        assert settings.llm.base_url == "https://token-plan-cn.xiaomimimo.com/v1"
+        assert settings.embedding.provider == "bge"
         assert settings.vector_store.provider == "chroma"
 
     def test_load_custom_path(self, tmp_path):
@@ -122,6 +123,7 @@ class TestValidateSettings:
         """Should pass with all required fields."""
         settings = Settings(
             llm=LLMConfig(provider="openai", model="gpt-4"),
+            ollama=OllamaConfig(),
             embedding=EmbeddingConfig(provider="openai", model="ada-002"),
             vector_store=VectorStoreConfig(provider="chroma"),
             retrieval=RetrievalConfig(),
@@ -135,6 +137,7 @@ class TestValidateSettings:
         """Should raise for missing llm.provider."""
         settings = Settings(
             llm=LLMConfig(provider="", model="gpt-4"),
+            ollama=OllamaConfig(),
             embedding=EmbeddingConfig(provider="openai", model="ada-002"),
             vector_store=VectorStoreConfig(provider="chroma"),
             retrieval=RetrievalConfig(),
@@ -149,6 +152,7 @@ class TestValidateSettings:
         """Should report all missing fields."""
         settings = Settings(
             llm=LLMConfig(provider="", model=""),
+            ollama=OllamaConfig(),
             embedding=EmbeddingConfig(provider="", model=""),
             vector_store=VectorStoreConfig(provider=""),
             retrieval=RetrievalConfig(),
@@ -174,6 +178,7 @@ class TestSettingsDataclasses:
         """Settings should have all configuration sections."""
         settings = Settings(
             llm=LLMConfig(provider="openai", model="gpt-4"),
+            ollama=OllamaConfig(),
             embedding=EmbeddingConfig(provider="openai", model="ada-002"),
             vector_store=VectorStoreConfig(provider="chroma"),
             retrieval=RetrievalConfig(),
@@ -182,6 +187,7 @@ class TestSettingsDataclasses:
             observability=ObservabilityConfig(),
         )
         assert hasattr(settings, "llm")
+        assert hasattr(settings, "ollama")
         assert hasattr(settings, "embedding")
         assert hasattr(settings, "vector_store")
         assert hasattr(settings, "retrieval")
