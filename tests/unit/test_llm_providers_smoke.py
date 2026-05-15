@@ -4,7 +4,8 @@
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+import sys
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from src.core.settings import LLMConfig
 from src.libs.llm.base_llm import Message, LLMResponse
@@ -41,12 +42,12 @@ class TestOpenAILLM:
         assert isinstance(llm, OpenAILLM)
         assert llm.base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
-    @patch("openai.OpenAI")
-    def test_chat_calls_api(self, mock_openai_class):
+    def test_chat_calls_api(self):
         """chat 方法应正确调用 OpenAI API。"""
-        # 设置 mock
+        # 创建 mock OpenAI 模块
+        mock_openai_module = MagicMock()
         mock_client = MagicMock()
-        mock_openai_class.return_value = mock_client
+        mock_openai_module.OpenAI.return_value = mock_client
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock(message=MagicMock(content="测试回复"))]
@@ -58,28 +59,30 @@ class TestOpenAILLM:
         )
         mock_client.chat.completions.create.return_value = mock_response
 
-        # 创建实例并调用
-        llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
-        messages = [Message(role="user", content="你好")]
-        response = llm.chat(messages)
+        # 将 mock 模块注入到 sys.modules
+        with patch.dict(sys.modules, {"openai": mock_openai_module}):
+            # 创建实例并调用
+            llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
+            messages = [Message(role="user", content="你好")]
+            response = llm.chat(messages)
 
-        # 验证
-        assert isinstance(response, LLMResponse)
-        assert response.content == "测试回复"
-        assert response.model == "mimo-v2.5-pro"
-        assert response.usage["prompt_tokens"] == 10
+            # 验证
+            assert isinstance(response, LLMResponse)
+            assert response.content == "测试回复"
+            assert response.model == "mimo-v2.5-pro"
+            assert response.usage["prompt_tokens"] == 10
 
-        # 验证 API 调用参数
-        mock_client.chat.completions.create.assert_called_once()
-        call_kwargs = mock_client.chat.completions.create.call_args
-        assert call_kwargs.kwargs["model"] == "mimo-v2.5-pro"
-        assert call_kwargs.kwargs["messages"] == [{"role": "user", "content": "你好"}]
+            # 验证 API 调用参数
+            mock_client.chat.completions.create.assert_called_once()
+            call_kwargs = mock_client.chat.completions.create.call_args
+            assert call_kwargs.kwargs["model"] == "mimo-v2.5-pro"
+            assert call_kwargs.kwargs["messages"] == [{"role": "user", "content": "你好"}]
 
-    @patch("openai.OpenAI")
-    def test_chat_with_base_url(self, mock_openai_class):
+    def test_chat_with_base_url(self):
         """应将 base_url 传递给 OpenAI 客户端。"""
+        mock_openai_module = MagicMock()
         mock_client = MagicMock()
-        mock_openai_class.return_value = mock_client
+        mock_openai_module.OpenAI.return_value = mock_client
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock(message=MagicMock(content="回复"))]
@@ -87,38 +90,40 @@ class TestOpenAILLM:
         mock_response.usage = MagicMock(prompt_tokens=5, completion_tokens=3, total_tokens=8)
         mock_client.chat.completions.create.return_value = mock_response
 
-        llm = OpenAILLM(
-            model="deepseek-v4-flash",
-            api_key="sk-test",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        )
-        messages = [Message(role="user", content="测试")]
-        llm.chat(messages)
-
-        # 验证 base_url 传递
-        mock_openai_class.assert_called_once_with(
-            api_key="sk-test",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        )
-
-    @patch("openai.OpenAI")
-    def test_chat_error_handling(self, mock_openai_class):
-        """API 调用失败时应抛出 RuntimeError。"""
-        mock_client = MagicMock()
-        mock_openai_class.return_value = mock_client
-        mock_client.chat.completions.create.side_effect = Exception("连接超时")
-
-        llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
-        messages = [Message(role="user", content="测试")]
-
-        with pytest.raises(RuntimeError, match="OpenAI API 调用失败"):
+        with patch.dict(sys.modules, {"openai": mock_openai_module}):
+            llm = OpenAILLM(
+                model="deepseek-v4-flash",
+                api_key="sk-test",
+                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            )
+            messages = [Message(role="user", content="测试")]
             llm.chat(messages)
 
-    @patch("openai.OpenAI")
-    def test_chat_simple_method(self, mock_openai_class):
-        """chat_simple 便捷方法应正常工作。"""
+            # 验证 base_url 传递
+            mock_openai_module.OpenAI.assert_called_once_with(
+                api_key="sk-test",
+                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            )
+
+    def test_chat_error_handling(self):
+        """API 调用失败时应抛出 RuntimeError。"""
+        mock_openai_module = MagicMock()
         mock_client = MagicMock()
-        mock_openai_class.return_value = mock_client
+        mock_openai_module.OpenAI.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception("连接超时")
+
+        with patch.dict(sys.modules, {"openai": mock_openai_module}):
+            llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
+            messages = [Message(role="user", content="测试")]
+
+            with pytest.raises(RuntimeError, match="OpenAI API 调用失败"):
+                llm.chat(messages)
+
+    def test_chat_simple_method(self):
+        """chat_simple 便捷方法应正常工作。"""
+        mock_openai_module = MagicMock()
+        mock_client = MagicMock()
+        mock_openai_module.OpenAI.return_value = mock_client
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock(message=MagicMock(content="简单回复"))]
@@ -126,14 +131,15 @@ class TestOpenAILLM:
         mock_response.usage = MagicMock(prompt_tokens=5, completion_tokens=3, total_tokens=8)
         mock_client.chat.completions.create.return_value = mock_response
 
-        llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
-        result = llm.chat_simple("你好", system="你是一个助手")
+        with patch.dict(sys.modules, {"openai": mock_openai_module}):
+            llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
+            result = llm.chat_simple("你好", system="你是一个助手")
 
-        assert result == "简单回复"
-        call_kwargs = mock_client.chat.completions.create.call_args.kwargs
-        assert len(call_kwargs["messages"]) == 2
-        assert call_kwargs["messages"][0]["role"] == "system"
-        assert call_kwargs["messages"][1]["role"] == "user"
+            assert result == "简单回复"
+            call_kwargs = mock_client.chat.completions.create.call_args.kwargs
+            assert len(call_kwargs["messages"]) == 2
+            assert call_kwargs["messages"][0]["role"] == "system"
+            assert call_kwargs["messages"][1]["role"] == "user"
 
 
 @pytest.mark.unit

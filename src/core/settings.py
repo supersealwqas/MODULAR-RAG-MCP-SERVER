@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import yaml
+from dotenv import load_dotenv
+
+# 加载 .env 文件（如果存在）
+_env_path = Path(__file__).parent.parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
 
 
 def _resolve_env_vars(value: str) -> str:
