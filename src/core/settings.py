@@ -6,11 +6,48 @@
 
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Union
 
 import yaml
+
+
+def _resolve_env_vars(value: str) -> str:
+    """解析字符串中的环境变量引用。
+
+    支持格式: ${VAR_NAME} 或 ${VAR_NAME:-default_value}
+
+    参数:
+        value: 可能包含环境变量引用的字符串
+
+    返回:
+        替换环境变量后的字符串
+    """
+    if not isinstance(value, str):
+        return value
+
+    # 匹配 ${VAR_NAME} 或 ${VAR_NAME:-default}
+    pattern = r'\$\{([^}]+)\}'
+
+    def replace_match(match):
+        var_expr = match.group(1)
+        if ':-' in var_expr:
+            # 有默认值: ${VAR:-default}
+            var_name, default = var_expr.split(':-', 1)
+            return os.environ.get(var_name.strip(), default)
+        else:
+            # 无默认值: ${VAR}
+            var_name = var_expr.strip()
+            env_value = os.environ.get(var_name)
+            if env_value is None:
+                # 环境变量不存在时返回空字符串（避免配置加载失败）
+                return ""
+            return env_value
+
+    return re.sub(pattern, replace_match, value)
 
 
 @dataclass
@@ -249,7 +286,7 @@ def _parse_settings(raw: dict) -> Settings:
             provider=llm_raw.get("provider", ""),
             model=llm_raw.get("model", ""),
             base_url=llm_raw.get("base_url", ""),
-            api_key=llm_raw.get("api_key", ""),
+            api_key=_resolve_env_vars(llm_raw.get("api_key", "")),
             temperature=llm_raw.get("temperature", 0.0),
             max_tokens=llm_raw.get("max_tokens", 4096),
         ),
@@ -257,7 +294,7 @@ def _parse_settings(raw: dict) -> Settings:
             provider=vision_llm_raw.get("provider", ""),
             model=vision_llm_raw.get("model", ""),
             base_url=vision_llm_raw.get("base_url", ""),
-            api_key=vision_llm_raw.get("api_key", ""),
+            api_key=_resolve_env_vars(vision_llm_raw.get("api_key", "")),
             temperature=vision_llm_raw.get("temperature", 0.0),
             max_tokens=vision_llm_raw.get("max_tokens", 4096),
             max_image_size=vision_llm_raw.get("max_image_size", 2048),

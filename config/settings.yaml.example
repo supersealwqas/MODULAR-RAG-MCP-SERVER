@@ -1,8 +1,11 @@
+# RAG 配置文件示例
+# 复制此文件为 settings.yaml 并填入你的 API key
+
 llm:
   provider: "openai"
   model: "mimo-v2.5-pro"
   base_url: "https://token-plan-cn.xiaomimimo.com/v1"
-  api_key: "tp-c5fbolasp2e1oudhm6fz4niwuqzcakcg55w0xi5gi16ukyr5"
+  api_key: "YOUR_MIMO_API_KEY"  # 替换为你的 API key
   temperature: 0.0
   max_tokens: 4096
 
@@ -10,7 +13,7 @@ vision_llm:
   provider: "openai"
   model: "mimo-v2.5"
   base_url: "https://token-plan-cn.xiaomimimo.com/v1"
-  api_key: "tp-c5fbolasp2e1oudhm6fz4niwuqzcakcg55w0xi5gi16ukyr5"
+  api_key: "YOUR_MIMO_API_KEY"  # 替换为你的 API key
   temperature: 0.0
   max_tokens: 4096
 
@@ -31,9 +34,9 @@ splitter:
   strategy: "recursive"
   chunk_size: 1000
   chunk_overlap: 200
-  separators: []          # 空列表使用默认分隔符，自定义示例: ["\n\n", "\n", "。", " "]
-  keep_code_blocks: true  # 保护 Markdown 代码块不被切碎
-  keep_headers: true      # 保护 Markdown 标题不与正文分离
+  separators: []
+  keep_code_blocks: true
+  keep_headers: true
 
 vector_store:
   provider: "chroma"

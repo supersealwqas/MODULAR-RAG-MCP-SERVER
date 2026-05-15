@@ -52,3 +52,6 @@ models/
 
 # 本地配置
 .claude/settings.local.json
+
+# 敏感配置文件（包含 API key）
+config/settings.yaml
