@@ -1968,10 +1968,10 @@ dashboard:
 | B7.3 | BGE Embedding 实现 | [x] | 2026-05-14 | BGEEmbedding实现，SentenceTransformer加载本地bge-m3模型，真实加载测试10项 |
 | B7.4 | Ollama Embedding 实现 | [ ] | | |
 | B7.5 | Recursive Splitter 默认实现 | [x] | 2026-05-14 | RecursiveSplitter实现，递归切分+代码块保护+标题保护，26项测试 |
-| B7.6 | ChromaStore 默认实现 | [ ] | | |
-| B7.7 | LLM Reranker 实现 | [ ] | | |
-| B7.8 | Cross-Encoder Reranker 实现 | [ ] | | |
-| B8 | Vision LLM 抽象接口与工厂集成 | [ ] | | |
+| B7.6 | ChromaStore 默认实现 | [x] | 2026-05-14 | ChromaStore实现，upsert/query/delete/count/get_by_ids，26项集成测试 |
+| B7.7 | LLM Reranker 实现 | [x] | 2026-05-15 | LLMReranker实现，prompt解析+fallback信号，23项测试 |
+| B7.8 | Cross-Encoder Reranker 实现 | [x] | 2026-05-15 | CrossEncoderReranker实现，mock scorer+超时回退，17项测试 |
+| B8 | Vision LLM 抽象接口与工厂集成 | [x] | 2026-05-15 | BaseVisionLLM抽象接口+VisionLLMConfig+register_vision_llm装饰器+create_vision_llm工厂方法，26项测试 |
 | B9 | OpenAI Vision LLM 实现 | [ ] | | |
 
 #### 阶段 C：Ingestion Pipeline MVP

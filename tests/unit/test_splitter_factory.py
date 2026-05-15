@@ -13,20 +13,43 @@ class FakeSplitter(BaseSplitter):
     """测试用的假 Splitter 实现，按 chunk_size 固定切分。"""
 
     def __init__(self, chunk_size: int = 512, chunk_overlap: int = 50, **kwargs):
+        """初始化 FakeSplitter。
+
+        参数:
+            chunk_size: 每个文本块的最大字符数
+            chunk_overlap: 相邻文本块之间的重叠字符数
+            **kwargs: 其他参数
+        """
         super().__init__(chunk_size, chunk_overlap, **kwargs)
         self.kwargs = kwargs
 
     def split_text(self, text: str, **kwargs) -> List[str]:
-        """按 chunk_size 固定切分文本，考虑重叠。"""
+        """按 chunk_size 固定切分文本，考虑重叠。
+
+        参数:
+            text: 待切分的文本
+            **kwargs: 其他参数
+
+        返回:
+            切分后的文本块列表
+        """
         if not text:
             return []
+
+        # 确保 overlap 不超过 chunk_size，防止无限循环
+        effective_overlap = min(self.chunk_overlap, self.chunk_size - 1)
 
         chunks = []
         start = 0
         while start < len(text):
             end = start + self.chunk_size
             chunks.append(text[start:end])
-            start = end - self.chunk_overlap
+            # 计算下一个起始位置，确保前进
+            next_start = end - effective_overlap
+            if next_start <= start:
+                # 如果没有前进，强制前进到 end
+                next_start = end
+            start = next_start
             if start >= len(text):
                 break
         return chunks
@@ -70,6 +93,15 @@ class TestBaseSplitter:
         splitter = FakeSplitter(chunk_size=100)
         chunks = splitter.split_text("short")
         assert chunks == ["short"]
+
+    def test_overlap_larger_than_chunk_size(self):
+        """overlap >= chunk_size 时不应死循环。"""
+        splitter = FakeSplitter(chunk_size=10, chunk_overlap=15)
+        text = "a" * 30
+        chunks = splitter.split_text(text)
+        assert len(chunks) >= 1
+        # 验证不会死循环，能正常返回
+        assert all(len(chunk) <= 10 for chunk in chunks)
 
 
 @pytest.mark.unit

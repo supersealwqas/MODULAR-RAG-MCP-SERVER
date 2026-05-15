@@ -118,10 +118,10 @@
 │  │ LLM Client │ │ Embedding  │ │  Splitter  │ │VectorStore │ │  Reranker  │ │ Evaluator  │  │
 │  │  Factory   │ │  Factory   │ │  Factory   │ │  Factory   │ │  Factory   │ │  Factory   │  │
 │  ├────────────┤ ├────────────┤ ├────────────┤ ├────────────┤ ├────────────┤ ├────────────┤  │
-│  │ · Azure    │ │ · OpenAI   │ │ · Recursive│ │ · Chroma   │ │ · None     │ │ · Ragas    │  │
-│  │ · OpenAI   │ │ · BGE      │ │ · Semantic │ │ · Qdrant   │ │ · CrossEnc │ │ · DeepEval │  │
-│  │ · Ollama   │ │ · Ollama   │ │ · FixedLen │ │ · Pinecone │ │ · LLM      │ │ · Custom   │  │
-│  │ · DeepSeek │ │ · ...      │ │ · ...      │ │ · ...      │ │            │ │            │  │
+│  │ · OpenAI   │ │ · OpenAI   │ │ · Recursive│ │ · Chroma   │ │ · None     │ │ · Ragas    │  │
+│  │ · Ollama   │ │ · BGE      │ │ · Semantic │ │ · Qdrant   │ │ · CrossEnc │ │ · DeepEval │  │
+│  │ · DeepSeek │ │ · Ollama   │ │ · FixedLen │ │ · Pinecone │ │ · LLM      │ │ · Custom   │  │
+│  │ · Vision✨ │ │ · ...      │ │ · ...      │ │ · ...      │ │            │ │            │  │
 │  │ · Vision✨ │ │            │ │            │ │            │ │            │ │            │  │
 │  └────────────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -232,19 +232,18 @@ smart-knowledge-hub/
 │   │   │   ├── __init__.py
 │   │   │   ├── base_llm.py              # LLM 抽象基类
 │   │   │   ├── llm_factory.py           # LLM 工厂
-│   │   │   ├── azure_llm.py             # Azure OpenAI 实现
-│   │   │   ├── openai_llm.py            # OpenAI 实现
+│   │   │   ├── openai_llm.py            # OpenAI-Compatible 实现
 │   │   │   ├── ollama_llm.py            # Ollama 本地模型实现
 │   │   │   ├── deepseek_llm.py          # DeepSeek 实现
 │   │   │   ├── base_vision_llm.py       # Vision LLM 抽象基类（支持图像输入）
-│   │   │   └── azure_vision_llm.py      # Azure Vision 实现 (GPT-4o/GPT-4-Vision)
+│   │   │   └── openai_vision_llm.py     # OpenAI Vision 实现 (mimo-v2.5)
 │   │   │
 │   │   ├── embedding/                   # Embedding 抽象
 │   │   │   ├── __init__.py
 │   │   │   ├── base_embedding.py        # Embedding 抽象基类
 │   │   │   ├── embedding_factory.py     # Embedding 工厂
 │   │   │   ├── openai_embedding.py      # OpenAI Embedding 实现
-│   │   │   ├── azure_embedding.py       # Azure Embedding 实现
+│   │   │   ├── bge_embedding.py         # BGE 本地 Embedding 实现
 │   │   │   └── ollama_embedding.py      # Ollama 本地模型实现
 │   │   │
 │   │   ├── splitter/                    # Splitter 抽象 (切分策略)
@@ -419,8 +418,8 @@ smart-knowledge-hub/
 
 | 抽象接口 | 当前默认实现 | 可替换选项 |
 |---------|------------|----------|
-| `LLMClient` | Azure OpenAI | OpenAI / Ollama / DeepSeek |
-| `VisionLLMClient` | Azure OpenAI Vision (GPT-4o) | OpenAI Vision / Ollama Vision (LLaVA) |
+| `LLMClient` | OpenAI-Compatible | Ollama / DeepSeek |
+| `VisionLLMClient` | OpenAI Vision (mimo-v2.5) | Ollama Vision (LLaVA) |
 | `EmbeddingClient` | OpenAI text-embedding-3 | BGE / Ollama 本地模型 |
 | `Loader` | PDF Loader（MarkItDown） | Markdown/HTML/Code Loader 等 |
 | `FileIntegrity` | SQLite (`data/db/ingestion_history.db`) | Redis（分布式）/ PostgreSQL（企业级）/ JSON文件（测试） |
@@ -589,20 +588,20 @@ Dashboard (Streamlit UI)
 
 # LLM 配置
 llm:
-  provider: azure           # azure | openai | ollama | deepseek
-  model: gpt-4o
-  azure_endpoint: "..."
-  api_key: "${AZURE_API_KEY}"
+  provider: openai          # openai | ollama | deepseek
+  model: mimo-v2.5-pro
+  base_url: "https://token-plan-cn.xiaomimimo.com/v1"
 
 # Embedding 配置
 embedding:
-  provider: openai          # openai | azure | ollama (本地)
-  model: text-embedding-3-small
-  
+  provider: bge             # bge | openai | ollama (本地)
+  model: bge-m3
+  model_path: "models/bge-m3"
+
 # Vision LLM 配置 (图片描述)
 vision_llm:
-  provider: azure           # azure | dashscope (Qwen-VL)
-  model: gpt-4o
+  provider: openai          # openai | ollama
+  model: mimo-v2.5
   
 # 向量存储配置
 vector_store:

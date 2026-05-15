@@ -53,6 +53,18 @@ class TestComputeHitRate:
         """无检索结果时应返回 0.0。"""
         assert compute_hit_rate([], ["a"]) == 0.0
 
+    def test_k_zero(self):
+        """k=0 时应返回 0.0。"""
+        assert compute_hit_rate(["a", "b"], ["a"], k=0) == 0.0
+
+    def test_duplicate_retrieved_ids(self):
+        """检索结果有重复时应正常处理。"""
+        assert compute_hit_rate(["a", "a", "b"], ["a"]) == 1.0
+
+    def test_duplicate_golden_ids(self):
+        """相关文档有重复时应正常处理。"""
+        assert compute_hit_rate(["a", "b"], ["a", "a"]) == 1.0
+
 
 @pytest.mark.unit
 class TestComputeMrr:
@@ -82,6 +94,14 @@ class TestComputeMrr:
         """无相关文档时 MRR = 0.0。"""
         assert compute_mrr(["a", "b"], []) == 0.0
 
+    def test_empty_retrieved(self):
+        """无检索结果时 MRR = 0.0。"""
+        assert compute_mrr([], ["a"]) == 0.0
+
+    def test_duplicate_golden_ids(self):
+        """相关文档有重复时应正常处理。"""
+        assert compute_mrr(["a", "b", "c"], ["b", "b"]) == 0.5
+
 
 @pytest.mark.unit
 class TestComputePrecisionAtK:
@@ -103,6 +123,14 @@ class TestComputePrecisionAtK:
         """应只考虑 Top-K 结果。"""
         assert compute_precision_at_k(["a", "b", "c"], ["c"], k=2) == 0.0
         assert compute_precision_at_k(["a", "b", "c"], ["c"], k=3) == pytest.approx(1.0 / 3.0)
+
+    def test_k_zero(self):
+        """k=0 时应返回 0.0。"""
+        assert compute_precision_at_k(["a", "b"], ["a"], k=0) == 0.0
+
+    def test_empty_retrieved(self):
+        """无检索结果时应返回 0.0。"""
+        assert compute_precision_at_k([], ["a"], k=5) == 0.0
 
 
 # --- 数据类测试 ---
@@ -213,6 +241,23 @@ class TestCustomEvaluator:
         assert "hit_rate" in result.metrics
         assert "mrr" in result.metrics
         assert "precision@5" in result.metrics
+
+    def test_empty_retrieved_ids(self):
+        """空检索结果应返回全 0 指标。"""
+        evaluator = CustomEvaluator(k=5)
+        case = EvalCase(query="test", retrieved_ids=[], golden_ids=["a"])
+        result = evaluator.evaluate_single(case)
+        assert result.metrics["hit_rate"] == 0.0
+        assert result.metrics["mrr"] == 0.0
+        assert result.metrics["precision@5"] == 0.0
+
+    def test_empty_golden_ids(self):
+        """空相关文档应返回全 0 指标。"""
+        evaluator = CustomEvaluator(k=5)
+        case = EvalCase(query="test", retrieved_ids=["a", "b"], golden_ids=[])
+        result = evaluator.evaluate_single(case)
+        assert result.metrics["hit_rate"] == 0.0
+        assert result.metrics["mrr"] == 0.0
 
 
 # --- EvaluatorFactory 测试 ---

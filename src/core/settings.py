@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import yaml
 
@@ -62,9 +62,29 @@ class EmbeddingConfig:
     """
     provider: str
     model: str
-    dimensions: int = 1536
+    dimensions: int = 1024
     api_key: str = ""
     model_path: str = ""
+
+
+@dataclass
+class SplitterConfig:
+    """文本分块配置。
+
+    属性:
+        strategy: 分块策略（如 "recursive"、"semantic"、"fixed_length"）
+        chunk_size: 每个文本块的最大字符数
+        chunk_overlap: 相邻文本块之间的重叠字符数
+        separators: 自定义分隔符列表（空列表使用策略默认值）
+        keep_code_blocks: 是否保护代码块不被切碎
+        keep_headers: 是否保护标题不与正文分离
+    """
+    strategy: str = "recursive"
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    separators: List[str] = field(default_factory=list)
+    keep_code_blocks: bool = True
+    keep_headers: bool = True
 
 
 @dataclass
@@ -118,6 +138,28 @@ class EvaluationConfig:
 
 
 @dataclass
+class VisionLLMConfig:
+    """Vision LLM 配置，用于图片描述等多模态任务。
+
+    属性:
+        provider: 提供者名称（如 "openai"、"ollama"）
+        model: 模型名称（如 "mimo-v2.5"、"llava"）
+        base_url: API 基础 URL
+        api_key: API 密钥
+        temperature: 生成温度
+        max_tokens: 最大生成 token 数
+        max_image_size: 图片最大尺寸（像素），超过时自动压缩
+    """
+    provider: str = ""
+    model: str = ""
+    base_url: str = ""
+    api_key: str = ""
+    temperature: float = 0.0
+    max_tokens: int = 4096
+    max_image_size: int = 2048
+
+
+@dataclass
 class ObservabilityConfig:
     """可观测性配置。
 
@@ -143,8 +185,10 @@ class Settings:
         observability: 可观测性配置
     """
     llm: LLMConfig
+    vision_llm: VisionLLMConfig
     ollama: OllamaConfig
     embedding: EmbeddingConfig
+    splitter: SplitterConfig
     vector_store: VectorStoreConfig
     retrieval: RetrievalConfig
     rerank: RerankConfig
@@ -190,8 +234,10 @@ def _parse_settings(raw: dict) -> Settings:
         Settings 对象，缺失字段使用默认值
     """
     llm_raw = raw.get("llm", {})
+    vision_llm_raw = raw.get("vision_llm", {})
     ollama_raw = raw.get("ollama", {})
     embedding_raw = raw.get("embedding", {})
+    splitter_raw = raw.get("splitter", {})
     vector_store_raw = raw.get("vector_store", {})
     retrieval_raw = raw.get("retrieval", {})
     rerank_raw = raw.get("rerank", {})
@@ -207,6 +253,15 @@ def _parse_settings(raw: dict) -> Settings:
             temperature=llm_raw.get("temperature", 0.0),
             max_tokens=llm_raw.get("max_tokens", 4096),
         ),
+        vision_llm=VisionLLMConfig(
+            provider=vision_llm_raw.get("provider", ""),
+            model=vision_llm_raw.get("model", ""),
+            base_url=vision_llm_raw.get("base_url", ""),
+            api_key=vision_llm_raw.get("api_key", ""),
+            temperature=vision_llm_raw.get("temperature", 0.0),
+            max_tokens=vision_llm_raw.get("max_tokens", 4096),
+            max_image_size=vision_llm_raw.get("max_image_size", 2048),
+        ),
         ollama=OllamaConfig(
             model=ollama_raw.get("model", "gemma4"),
             base_url=ollama_raw.get("base_url", "http://localhost:11434"),
@@ -216,9 +271,17 @@ def _parse_settings(raw: dict) -> Settings:
         embedding=EmbeddingConfig(
             provider=embedding_raw.get("provider", ""),
             model=embedding_raw.get("model", ""),
-            dimensions=embedding_raw.get("dimensions", 1536),
+            dimensions=embedding_raw.get("dimensions", 1024),
             api_key=embedding_raw.get("api_key", ""),
             model_path=embedding_raw.get("model_path", ""),
+        ),
+        splitter=SplitterConfig(
+            strategy=splitter_raw.get("strategy", "recursive"),
+            chunk_size=splitter_raw.get("chunk_size", 1000),
+            chunk_overlap=splitter_raw.get("chunk_overlap", 200),
+            separators=splitter_raw.get("separators", []),
+            keep_code_blocks=splitter_raw.get("keep_code_blocks", True),
+            keep_headers=splitter_raw.get("keep_headers", True),
         ),
         vector_store=VectorStoreConfig(
             provider=vector_store_raw.get("provider", ""),

@@ -3,7 +3,7 @@
 ### 7.1 云端部署与后端架构学习
 虽然当前阶段我们主要采用“本地运行”模式，但本项目的架构设计完全支持向云端迁移。这也是一个极佳的学习后端工程化的切入点。
 - **Server 容器化**：计划编写 Dockerfile，将 MCP Server 打包为容器。这让我们有机会深入理解 Python 环境隔离、依赖管理以及 Docker 的最佳实践。
-- **云端接入**：未来可以将 Server 部署至 Azure Container Apps 或 AWS Lambda。
+- **云端接入**：未来可以将 Server 部署至 AWS Lambda 或其他云平台。
     - **挑战与学习点**：处理网络延时、配置 API Gateway、增加 AuthN/AuthZ 鉴权机制（保护私有数据不被公开访问）。
 - **多租户与并发**：从单用户本地服务转变为支持团队共享的服务。
     - **学习点**：在 Chroma 中实现 Namespace 隔离、处理并发请求锁、优化 embedding 缓存策略。

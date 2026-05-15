@@ -81,7 +81,7 @@ class TestOllamaLLM:
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "model": "qwen2",
+            "model": "gemma4",
             "message": {"content": "回复"},
             "prompt_eval_count": 5,
             "eval_count": 3,
@@ -89,7 +89,7 @@ class TestOllamaLLM:
         mock_response.raise_for_status = MagicMock()
         mock_client.post.return_value = mock_response
 
-        llm = OllamaLLM(model="qwen2", base_url="http://192.168.1.100:11434/")
+        llm = OllamaLLM(model="gemma4", base_url="http://192.168.1.100:11434/")
         messages = [Message(role="user", content="测试")]
         llm.chat(messages)
 

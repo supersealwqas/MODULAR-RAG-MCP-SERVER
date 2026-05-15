@@ -20,14 +20,14 @@ class TestOpenAILLM:
         """provider=openai 时工厂应创建 OpenAILLM 实例。"""
         config = LLMConfig(
             provider="openai",
-            model="gpt-4o",
+            model="mimo-v2.5-pro",
             api_key="sk-test",
-            base_url="https://api.openai.com/v1",
+            base_url="https://token-plan-cn.xiaomimimo.com/v1",
         )
         llm = LLMFactory.create(config)
         assert isinstance(llm, OpenAILLM)
-        assert llm.model == "gpt-4o"
-        assert llm.base_url == "https://api.openai.com/v1"
+        assert llm.model == "mimo-v2.5-pro"
+        assert llm.base_url == "https://token-plan-cn.xiaomimimo.com/v1"
 
     def test_factory_creates_with_custom_base_url(self):
         """应支持自定义 base_url（如阿里云百炼）。"""
@@ -50,7 +50,7 @@ class TestOpenAILLM:
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock(message=MagicMock(content="测试回复"))]
-        mock_response.model = "gpt-4o"
+        mock_response.model = "mimo-v2.5-pro"
         mock_response.usage = MagicMock(
             prompt_tokens=10,
             completion_tokens=5,
@@ -59,20 +59,20 @@ class TestOpenAILLM:
         mock_client.chat.completions.create.return_value = mock_response
 
         # 创建实例并调用
-        llm = OpenAILLM(model="gpt-4o", api_key="sk-test")
+        llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
         messages = [Message(role="user", content="你好")]
         response = llm.chat(messages)
 
         # 验证
         assert isinstance(response, LLMResponse)
         assert response.content == "测试回复"
-        assert response.model == "gpt-4o"
+        assert response.model == "mimo-v2.5-pro"
         assert response.usage["prompt_tokens"] == 10
 
         # 验证 API 调用参数
         mock_client.chat.completions.create.assert_called_once()
         call_kwargs = mock_client.chat.completions.create.call_args
-        assert call_kwargs.kwargs["model"] == "gpt-4o"
+        assert call_kwargs.kwargs["model"] == "mimo-v2.5-pro"
         assert call_kwargs.kwargs["messages"] == [{"role": "user", "content": "你好"}]
 
     @patch("openai.OpenAI")
@@ -108,7 +108,7 @@ class TestOpenAILLM:
         mock_openai_class.return_value = mock_client
         mock_client.chat.completions.create.side_effect = Exception("连接超时")
 
-        llm = OpenAILLM(model="gpt-4o", api_key="sk-test")
+        llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
         messages = [Message(role="user", content="测试")]
 
         with pytest.raises(RuntimeError, match="OpenAI API 调用失败"):
@@ -122,11 +122,11 @@ class TestOpenAILLM:
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock(message=MagicMock(content="简单回复"))]
-        mock_response.model = "gpt-4o"
+        mock_response.model = "mimo-v2.5-pro"
         mock_response.usage = MagicMock(prompt_tokens=5, completion_tokens=3, total_tokens=8)
         mock_client.chat.completions.create.return_value = mock_response
 
-        llm = OpenAILLM(model="gpt-4o", api_key="sk-test")
+        llm = OpenAILLM(model="mimo-v2.5-pro", api_key="sk-test")
         result = llm.chat_simple("你好", system="你是一个助手")
 
         assert result == "简单回复"

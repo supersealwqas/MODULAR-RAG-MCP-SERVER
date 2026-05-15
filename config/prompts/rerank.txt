@@ -1,7 +1,7 @@
-Given the query and a list of document passages, rank them by relevance.
-Return the passage IDs in order from most relevant to least relevant.
+给定查询和一组文档段落，按相关性排序。
+将段落 ID 按相关性从高到低排列返回。
 
-Query: {query}
+查询: {query}
 
-Passages:
+段落:
 {passages}

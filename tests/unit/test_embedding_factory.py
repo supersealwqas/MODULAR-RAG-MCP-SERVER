@@ -13,7 +13,7 @@ from src.libs.embedding.embedding_factory import EmbeddingFactory, register_embe
 class FakeEmbedding(BaseEmbedding):
     """测试用的假 Embedding 实现，返回固定向量。"""
 
-    def __init__(self, model: str, dimensions: int = 1536, api_key: str = "", **kwargs):
+    def __init__(self, model: str, dimensions: int = 1024, api_key: str = "", **kwargs):
         super().__init__(model, dimensions, api_key, **kwargs)
         self.kwargs = kwargs
 

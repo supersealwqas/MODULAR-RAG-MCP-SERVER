@@ -27,6 +27,14 @@ embedding:
   model_path: "models/bge-m3"
   api_key: ""
 
+splitter:
+  strategy: "recursive"
+  chunk_size: 1000
+  chunk_overlap: 200
+  separators: []          # 空列表使用默认分隔符，自定义示例: ["\n\n", "\n", "。", " "]
+  keep_code_blocks: true  # 保护 Markdown 代码块不被切碎
+  keep_headers: true      # 保护 Markdown 标题不与正文分离
+
 vector_store:
   provider: "chroma"
   persist_directory: "data/db/chroma"

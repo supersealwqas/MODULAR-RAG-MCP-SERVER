@@ -1,4 +1,4 @@
-"""Tests for configuration loading and validation."""
+"""测试配置加载与校验。"""
 
 import pytest
 import yaml
@@ -10,8 +10,10 @@ from src.core.settings import (
     validate_settings,
     _parse_settings,
     LLMConfig,
+    VisionLLMConfig,
     OllamaConfig,
     EmbeddingConfig,
+    SplitterConfig,
     VectorStoreConfig,
     RetrievalConfig,
     RerankConfig,
@@ -22,7 +24,7 @@ from src.core.settings import (
 
 @pytest.mark.unit
 class TestLoadSettings:
-    """Test load_settings function."""
+    """测试 load_settings 函数。"""
 
     def test_load_default_config(self):
         """应成功加载默认 settings.yaml 配置。"""
@@ -35,7 +37,7 @@ class TestLoadSettings:
         assert settings.vector_store.provider == "chroma"
 
     def test_load_custom_path(self, tmp_path):
-        """Should load from custom path."""
+        """应能从自定义路径加载配置。"""
         config = {
             "llm": {"provider": "test", "model": "test-model"},
             "embedding": {"provider": "test", "model": "test-embed"},
@@ -63,22 +65,22 @@ class TestLoadSettings:
 
 @pytest.mark.unit
 class TestParseSettings:
-    """Test _parse_settings function."""
+    """测试 _parse_settings 函数。"""
 
     def test_parse_full_config(self):
-        """Should parse all fields correctly."""
+        """应正确解析所有字段。"""
         raw = {
             "llm": {
                 "provider": "openai",
-                "model": "gpt-4",
+                "model": "mimo-v2.5-pro",
                 "api_key": "sk-test",
                 "temperature": 0.5,
                 "max_tokens": 2048,
             },
             "embedding": {
-                "provider": "openai",
-                "model": "ada-002",
-                "dimensions": 768,
+                "provider": "bge",
+                "model": "bge-m3",
+                "dimensions": 1024,
                 "api_key": "sk-embed",
             },
             "vector_store": {"provider": "chroma", "persist_directory": "/tmp/db"},
@@ -90,11 +92,11 @@ class TestParseSettings:
         settings = _parse_settings(raw)
 
         assert settings.llm.provider == "openai"
-        assert settings.llm.model == "gpt-4"
+        assert settings.llm.model == "mimo-v2.5-pro"
         assert settings.llm.api_key == "sk-test"
         assert settings.llm.temperature == 0.5
         assert settings.llm.max_tokens == 2048
-        assert settings.embedding.dimensions == 768
+        assert settings.embedding.dimensions == 1024
         assert settings.vector_store.persist_directory == "/tmp/db"
         assert settings.retrieval.top_k == 5
         assert settings.retrieval.hybrid is False
@@ -103,13 +105,13 @@ class TestParseSettings:
         assert settings.observability.log_level == "DEBUG"
 
     def test_parse_empty_config(self):
-        """Should use defaults for missing fields."""
+        """缺失字段应使用默认值。"""
         raw = {}
         settings = _parse_settings(raw)
 
         assert settings.llm.provider == ""
         assert settings.llm.temperature == 0.0
-        assert settings.embedding.dimensions == 1536
+        assert settings.embedding.dimensions == 1024
         assert settings.retrieval.top_k == 10
         assert settings.rerank.enabled is False
         assert settings.evaluation.backends == ["custom"]
@@ -117,28 +119,32 @@ class TestParseSettings:
 
 @pytest.mark.unit
 class TestValidateSettings:
-    """Test validate_settings function."""
+    """测试 validate_settings 函数。"""
 
     def test_valid_settings(self):
-        """Should pass with all required fields."""
+        """所有必填字段存在时应通过校验。"""
         settings = Settings(
-            llm=LLMConfig(provider="openai", model="gpt-4"),
+            llm=LLMConfig(provider="openai", model="mimo-v2.5-pro"),
+            vision_llm=VisionLLMConfig(),
             ollama=OllamaConfig(),
-            embedding=EmbeddingConfig(provider="openai", model="ada-002"),
+            embedding=EmbeddingConfig(provider="bge", model="bge-m3"),
+            splitter=SplitterConfig(),
             vector_store=VectorStoreConfig(provider="chroma"),
             retrieval=RetrievalConfig(),
             rerank=RerankConfig(),
             evaluation=EvaluationConfig(),
             observability=ObservabilityConfig(),
         )
-        validate_settings(settings)  # Should not raise
+        validate_settings(settings)  # 不应抛出异常
 
     def test_missing_llm_provider(self):
-        """Should raise for missing llm.provider."""
+        """缺少 llm.provider 时应抛出异常。"""
         settings = Settings(
-            llm=LLMConfig(provider="", model="gpt-4"),
+            llm=LLMConfig(provider="", model="mimo-v2.5-pro"),
+            vision_llm=VisionLLMConfig(),
             ollama=OllamaConfig(),
-            embedding=EmbeddingConfig(provider="openai", model="ada-002"),
+            embedding=EmbeddingConfig(provider="bge", model="bge-m3"),
+            splitter=SplitterConfig(),
             vector_store=VectorStoreConfig(provider="chroma"),
             retrieval=RetrievalConfig(),
             rerank=RerankConfig(),
@@ -149,11 +155,13 @@ class TestValidateSettings:
             validate_settings(settings)
 
     def test_missing_multiple_fields(self):
-        """Should report all missing fields."""
+        """缺少多个字段时应报告所有缺失字段。"""
         settings = Settings(
             llm=LLMConfig(provider="", model=""),
+            vision_llm=VisionLLMConfig(),
             ollama=OllamaConfig(),
             embedding=EmbeddingConfig(provider="", model=""),
+            splitter=SplitterConfig(),
             vector_store=VectorStoreConfig(provider=""),
             retrieval=RetrievalConfig(),
             rerank=RerankConfig(),
@@ -172,14 +180,16 @@ class TestValidateSettings:
 
 @pytest.mark.unit
 class TestSettingsDataclasses:
-    """Test Settings dataclass structure."""
+    """测试 Settings 数据类结构。"""
 
     def test_settings_has_all_sections(self):
-        """Settings should have all configuration sections."""
+        """Settings 应包含所有配置节。"""
         settings = Settings(
-            llm=LLMConfig(provider="openai", model="gpt-4"),
+            llm=LLMConfig(provider="openai", model="mimo-v2.5-pro"),
+            vision_llm=VisionLLMConfig(),
             ollama=OllamaConfig(),
-            embedding=EmbeddingConfig(provider="openai", model="ada-002"),
+            embedding=EmbeddingConfig(provider="bge", model="bge-m3"),
+            splitter=SplitterConfig(),
             vector_store=VectorStoreConfig(provider="chroma"),
             retrieval=RetrievalConfig(),
             rerank=RerankConfig(),
@@ -196,7 +206,7 @@ class TestSettingsDataclasses:
         assert hasattr(settings, "observability")
 
     def test_llm_config_defaults(self):
-        """LLMConfig should have sensible defaults."""
+        """LLMConfig 应有合理的默认值。"""
         config = LLMConfig(provider="test", model="test")
         assert config.api_key == ""
         assert config.temperature == 0.0

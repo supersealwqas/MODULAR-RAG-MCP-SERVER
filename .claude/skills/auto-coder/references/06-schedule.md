@@ -50,7 +50,7 @@
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
 | B1 | LLM 抽象接口与工厂 | [x] | 2026-05-14 | BaseLLM抽象类、LLMFactory、@register_llm装饰器 |
-| B2 | Embedding 抽象接口与工厂 | [x] | 2026-05-14 | BaseEmbedding抽象类、EmbeddingFactory、@register_embedding装饰器 |
+| B2 | Embedding 抽象接口与工厂 | [x] | 2026-05-14 | BaseEmbedding抽象类、EmbeddingFactory、@register_embedding装饰器。**待修复**: FakeEmbedding按索引生成向量，不是按文本内容，"稳定"是假的 |
 | B3 | Splitter 抽象接口与工厂 | [x] | 2026-05-14 | BaseSplitter抽象类、SplitterFactory、@register_splitter装饰器 |
 | B4 | VectorStore 抽象接口与工厂 | [x] | 2026-05-14 | BaseVectorStore抽象类、VectorRecord/QueryResult数据类、VectorStoreFactory |
 | B5 | Reranker 抽象接口与工厂（含 None 回退） | [x] | 2026-05-14 | BaseReranker抽象类、NoneReranker回退、Candidate/RankedCandidate数据类 |
@@ -60,10 +60,10 @@
 | B7.3 | BGE Embedding 实现 | [x] | 2026-05-14 | BGEEmbedding实现，SentenceTransformer加载本地bge-m3模型，真实加载测试10项 |
 | B7.4 | Ollama Embedding 实现 | [ ] | | |
 | B7.5 | Recursive Splitter 默认实现 | [x] | 2026-05-14 | RecursiveSplitter实现，递归切分+代码块保护+标题保护，26项测试 |
-| B7.6 | ChromaStore 默认实现 | [ ] | | |
-| B7.7 | LLM Reranker 实现 | [ ] | | |
-| B7.8 | Cross-Encoder Reranker 实现 | [ ] | | |
-| B8 | Vision LLM 抽象接口与工厂集成 | [ ] | | |
+| B7.6 | ChromaStore 默认实现 | [x] | 2026-05-14 | ChromaStore实现，upsert/query/delete/count/get_by_ids，26项集成测试 |
+| B7.7 | LLM Reranker 实现 | [x] | 2026-05-15 | LLMReranker实现，prompt解析+fallback信号，23项测试 |
+| B7.8 | Cross-Encoder Reranker 实现 | [x] | 2026-05-15 | CrossEncoderReranker实现，mock scorer+超时回退，17项测试 |
+| B8 | Vision LLM 抽象接口与工厂集成 | [x] | 2026-05-15 | BaseVisionLLM抽象接口+VisionLLMConfig+register_vision_llm装饰器+create_vision_llm工厂方法，26项测试 |
 | B9 | OpenAI Vision LLM 实现 | [ ] | | |
 
 #### 阶段 C：Ingestion Pipeline MVP
@@ -303,11 +303,10 @@
 
 > 说明：B7 只补齐与端到端主链路强相关的默认实现（LLM/Embedding/Splitter/VectorStore/Reranker）。其余可选扩展（例如额外 splitter 策略、更多 vector store 后端、更多 evaluator 后端等）保持原排期不提前。
 
-### B7.1：OpenAI-Compatible LLM（OpenAI/Azure/DeepSeek）
+### B7.1：OpenAI-Compatible LLM（OpenAI/DeepSeek）
 - **目标**：补齐 OpenAI-compatible 的 LLM 实现，确保通过 `LLMFactory` 可创建并可被 mock 测试。
 - **修改文件**：
   - `src/libs/llm/openai_llm.py`
-  - `src/libs/llm/azure_llm.py`
   - `src/libs/llm/deepseek_llm.py`
   - `tests/unit/test_llm_providers_smoke.py`（mock HTTP，不走真实网络）
 - **验收标准**：
@@ -325,18 +324,18 @@
   - 在连接失败/超时等场景下，抛出可读错误且不泄露敏感配置。
 - **测试方法**：`pytest -q tests/unit/test_ollama_llm.py`。
 
-### B7.3：OpenAI & Azure Embedding 实现
-- **目标**：补齐 `openai_embedding.py` 和 `azure_embedding.py`，支持 OpenAI 官方 API 和 Azure OpenAI 服务的 Embedding 调用，支持批量 `embed(texts)`，并可被 mock 测试。
+### B7.3：BGE Embedding 实现
+
+- **目标**：补齐 `bge_embedding.py`，支持本地 BGE 模型（如 `bge-m3`）的 Embedding 调用，支持批量 `embed(texts)`，并可被 mock 测试。
 - **修改文件**：
-  - `src/libs/embedding/openai_embedding.py`
-  - `src/libs/embedding/azure_embedding.py`
-  - `tests/unit/test_embedding_providers_smoke.py`（mock HTTP，包含 OpenAI 和 Azure 测试用例）
+  - `src/libs/embedding/bge_embedding.py`
+  - `tests/unit/test_bge_embedding.py`（mock 模型加载）
 - **验收标准**：
-  - provider=openai 时 `EmbeddingFactory` 可创建，支持 OpenAI 官方 API 的 text-embedding-3-small/large 等模型。
-  - provider=azure 时 `EmbeddingFactory` 可创建，正确处理 Azure 特有的 endpoint、api-version、api-key 配置，支持 Azure 部署的 text-embedding-ada-002 等模型。
+  - provider=bge 时 `EmbeddingFactory` 可创建。
+  - 支持配置本地模型路径（如 `models/bge-m3`），加载 ONNX 或 SentenceTransformer 格式。
   - 空输入、超长输入有明确行为（报错或截断策略由配置决定）。
-  - Azure 实现复用 OpenAI Embedding 的核心逻辑，保持行为一致性。
-- **测试方法**：`pytest -q tests/unit/test_embedding_providers_smoke.py`。
+  - 输出向量维度与模型一致（如 bge-m3 为 1024 维）。
+- **测试方法**：`pytest -q tests/unit/test_bge_embedding.py`。
 
 ### B7.4：Ollama Embedding 实现
 - **目标**：补齐 `ollama_embedding.py`，支持通过 Ollama HTTP API 调用本地部署的 Embedding 模型（如 `nomic-embed-text`、`mxbai-embed-large` 等），实现 `embed(texts)` 批量向量化功能。
@@ -409,21 +408,22 @@
   - 接口设计支持图片预处理（压缩、格式转换）的扩展点。
 - **测试方法**：`pytest -q tests/unit/test_vision_llm_factory.py`。
 
-### B9：Azure Vision LLM 实现
-- **目标**：实现 `AzureVisionLLM`，支持通过 Azure OpenAI 调用 GPT-4o/GPT-4-Vision-Preview 进行图像理解。
+### B9：OpenAI Vision LLM 实现
+
+- **目标**：实现 `OpenAIVisionLLM`，支持通过 OpenAI-Compatible API 调用多模态模型（如 mimo-v2.5）进行图像理解。
 - **修改文件**：
-  - `src/libs/llm/azure_vision_llm.py`
-  - `tests/unit/test_azure_vision_llm.py`（mock HTTP，不走真实 API）
+  - `src/libs/llm/openai_vision_llm.py`
+  - `tests/unit/test_openai_vision_llm.py`（mock HTTP，不走真实 API）
 - **实现类/函数**：
-  - `AzureVisionLLM(BaseVisionLLM)`：实现 `chat_with_image` 方法
-  - 支持 Azure 特有配置：`azure_endpoint`, `api_version`, `deployment_name`, `api_key`
+  - `OpenAIVisionLLM(BaseVisionLLM)`：实现 `chat_with_image` 方法
+  - 支持 OpenAI 兼容配置：`base_url`, `api_key`, `model`
 - **验收标准**：
-  - provider=azure 且配置 vision_llm 时，`LLMFactory.create_vision_llm()` 可创建 Azure Vision LLM 实例。
+  - provider=openai 且配置 vision_llm 时，`LLMFactory.create_vision_llm()` 可创建 Vision LLM 实例。
   - 支持图片路径和 base64 两种输入方式。
   - 图片过大时自动压缩至 `max_image_size` 配置的尺寸（默认2048px）。
-  - API 调用失败时抛出清晰错误，包含 Azure 特有错误码。
+  - API 调用失败时抛出清晰错误，包含 provider 与错误类型。
   - mock 测试覆盖：正常调用、图片压缩、超时、认证失败等场景。
-- **测试方法**：`pytest -q tests/unit/test_azure_vision_llm.py`。
+- **测试方法**：`pytest -q tests/unit/test_openai_vision_llm.py`。
 
 ---
 
@@ -866,7 +866,7 @@
     5. 调用 `Reranker.rerank()` 进行精排（除非 `--no-rerank`）
     6. 格式化输出结果
 - **验收标准**：
-  - 命令行可运行：`python scripts/query.py --query "如何配置 Azure？"`
+  - 命令行可运行：`python scripts/query.py --query "如何配置 Ollama？"`
   - 返回格式化的 Top-K 检索结果
   - `--verbose` 模式显示各阶段中间结果（便于调试）
   - 无数据时返回友好提示（如"未找到相关文档，请先运行 ingest.py 摄取数据"）
@@ -1161,7 +1161,7 @@
   {
     "test_cases": [
       {
-        "query": "如何配置 Azure OpenAI？",
+        "query": "如何配置 Ollama？",
         "expected_chunk_ids": ["chunk_abc_001", "chunk_abc_002"],
         "expected_sources": ["config_guide.pdf"]
       }

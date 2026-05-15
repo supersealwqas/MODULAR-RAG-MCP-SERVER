@@ -80,8 +80,12 @@ def compute_precision_at_k(retrieved_ids: List[str], golden_ids: List[str], k: i
         return 0.0
 
     top_k = retrieved_ids[:k]
-    golden = set(golden_ids)
 
+    # 如果 Top-K 为空，返回 0.0
+    if not top_k:
+        return 0.0
+
+    golden = set(golden_ids)
     hits = sum(1 for doc_id in top_k if doc_id in golden)
     return hits / len(top_k)
 

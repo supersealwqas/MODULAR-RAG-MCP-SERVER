@@ -10,9 +10,6 @@
 注意：此测试会真实加载 models/bge-m3 模型，需要确保模型文件存在。
 """
 
-import sys
-sys.stdout.reconfigure(encoding='utf-8')
-
 import pytest
 from unittest.mock import patch, MagicMock
 

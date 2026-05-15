@@ -87,8 +87,8 @@ class TestRecursiveSplitterSplitting:
         text = "第一部分。第二部分。第三部分。第四部分。第五部分。"
         chunks = splitter.split_text(text)
         reconstructed = "".join(chunks)
-        # 去掉可能的分隔符差异，检查内容完整性
-        assert len(reconstructed) == len(text)
+        # 验证内容完整性，不仅仅是长度
+        assert reconstructed == text
 
     def test_overlap_creates_repeated_content(self):
         """重叠应导致相邻块有重复内容。"""
