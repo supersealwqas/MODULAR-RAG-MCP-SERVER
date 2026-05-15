@@ -64,7 +64,7 @@
 | B7.7 | LLM Reranker 实现 | [x] | 2026-05-15 | LLMReranker实现，prompt解析+fallback信号，23项测试 |
 | B7.8 | Cross-Encoder Reranker 实现 | [x] | 2026-05-15 | CrossEncoderReranker实现，mock scorer+超时回退，17项测试 |
 | B8 | Vision LLM 抽象接口与工厂集成 | [x] | 2026-05-15 | BaseVisionLLM抽象接口+VisionLLMConfig+register_vision_llm装饰器+create_vision_llm工厂方法，26项测试 |
-| B9 | OpenAI Vision LLM 实现 | [ ] | | |
+| B9 | OpenAI Vision LLM 实现 | [x] | 2026-05-15 | OpenAIVisionLLM实现，图片压缩+base64+MIME检测，31项测试 |
 
 #### 阶段 C：Ingestion Pipeline MVP
 
