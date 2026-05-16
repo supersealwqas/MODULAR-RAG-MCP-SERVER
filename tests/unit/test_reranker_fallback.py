@@ -408,6 +408,23 @@ class TestRerankerTraceRecording:
 # ============================================================
 
 
+class TestRerankerFallbackDefaultTopK:
+    """回退时使用默认 top_k 测试。"""
+
+    def test_fallback_uses_settings_top_k(self):
+        """回退时使用 settings 默认 top_k（不显式传参）。"""
+        settings = _make_settings_stub(rerank_top_k=2)
+        backend = _make_mock_backend()
+        backend.rerank.side_effect = RuntimeError("backend failed")
+        reranker = Reranker(settings, backend=backend)
+
+        candidates = _make_retrieval_results(["a", "b", "c", "d"])
+        result = reranker.rerank("test query", candidates)
+
+        assert result["fallback"] is True
+        assert len(result["results"]) == 2
+
+
 class TestRerankerWithNoneBackend:
     """使用 NoneReranker 后端的集成测试。"""
 

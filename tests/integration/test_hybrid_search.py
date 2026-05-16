@@ -372,6 +372,22 @@ class TestHybridSearchTraceRecording:
 # ============================================================
 
 
+class TestHybridSearchFiltersForwarding:
+    """Filters 传递测试。"""
+
+    def test_search_forwards_filters_to_query_processor(self):
+        """search 将 filters 传递给 QueryProcessor.process。"""
+        settings = _make_settings_stub()
+        qp = _make_mock_query_processor()
+        dense = _make_mock_dense_retriever(_make_retrieval_results(["a"]))
+        sparse = _make_mock_sparse_retriever(_make_retrieval_results(["b"]))
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        hs.search("test query", filters={"collection": "docs"})
+
+        qp.process.assert_called_once_with("test query", filters={"collection": "docs"}, trace=None)
+
+
 class TestHybridSearchSerialization:
     """RetrievalResult 序列化测试。"""
 

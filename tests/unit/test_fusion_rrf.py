@@ -307,6 +307,37 @@ class TestFuseTraceRecording:
 # ============================================================
 
 
+class TestFuseOverlappingIds:
+    """完全重叠 ID 的融合测试。"""
+
+    def test_two_rankings_same_ids_different_order(self):
+        """两个排名包含相同 ID 但顺序不同时，RRF 分数正确。"""
+        fusion = Fusion(k=60)
+
+        r1 = _make_results(["a", "b", "c"])
+        r2 = _make_results(["c", "b", "a"])
+
+        results = fusion.fuse([r1, r2])
+
+        # a: rank0+rank2 → 1/(60+0) + 1/(60+2) = 1/60 + 1/62
+        # b: rank1+rank1 → 1/(60+1) + 1/(60+1) = 2/61
+        # c: rank2+rank0 → 1/(60+2) + 1/(60+0) = 1/62 + 1/60
+        # a 和 c 的分数应相同（对称）
+        assert len(results) == 3
+        scores = {r.chunk_id: r.score for r in results}
+        assert scores["a"] == pytest.approx(scores["c"])
+        # RRF 凸性：极端排名的组合分数略高于中间排名
+        assert scores["a"] > scores["b"]
+
+    def test_top_k_zero_returns_empty(self):
+        """top_k=0 返回空列表。"""
+        fusion = Fusion(k=60)
+        r1 = _make_results(["a", "b", "c"])
+
+        results = fusion.fuse([r1], top_k=0)
+        assert results == []
+
+
 class TestFuseSerialization:
     """RetrievalResult 序列化测试。"""
 

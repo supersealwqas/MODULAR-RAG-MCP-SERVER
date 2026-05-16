@@ -12,8 +12,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, List
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -292,6 +292,39 @@ class TestDependencyInjection:
         restored = RetrievalResult.from_dict(d)
         assert restored.chunk_id == results[0].chunk_id
         assert restored.score == results[0].score
+
+
+# ============================================================
+# 错误处理测试
+# ============================================================
+
+
+class TestPartialVectorStoreMiss:
+    """VectorStore 部分缺失测试。"""
+
+    def test_partial_records_returned(self):
+        """BM25 返回 3 个 ID 但 VectorStore 只有 2 条记录时，返回 2 条结果。"""
+        settings = _make_settings_stub()
+        bm25 = _make_mock_bm25([("chunk_0000", 10.0), ("chunk_0001", 9.0), ("chunk_0002", 8.0)])
+        # VectorStore 只返回 2 条记录（缺少 chunk_0002）
+        records = _make_vector_records(2)
+        vs = _make_mock_vector_store(records)
+
+        retriever = SparseRetriever(settings, bm25_indexer=bm25, vector_store=vs)
+        results = retriever.retrieve(["test"])
+
+        assert len(results) == 2
+
+    def test_all_records_missing(self):
+        """BM25 返回 ID 但 VectorStore 全部缺失时，返回空列表。"""
+        settings = _make_settings_stub()
+        bm25 = _make_mock_bm25([("chunk_0000", 10.0)])
+        vs = _make_mock_vector_store([])  # VectorStore 返回空
+
+        retriever = SparseRetriever(settings, bm25_indexer=bm25, vector_store=vs)
+        results = retriever.retrieve(["test"])
+
+        assert results == []
 
 
 # ============================================================

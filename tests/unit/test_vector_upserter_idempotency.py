@@ -56,6 +56,18 @@ class MockVectorStore(BaseVectorStore):
                 deleted += 1
         return deleted
 
+    def get_by_ids(self, ids: List[str], **kwargs) -> list:
+        results = []
+        for id_ in ids:
+            record = self._storage.get(id_)
+            if record:
+                results.append({
+                    "id": record.id,
+                    "text": record.text,
+                    "metadata": record.metadata,
+                })
+        return results
+
     def count(self, **kwargs) -> int:
         return len(self._storage)
 

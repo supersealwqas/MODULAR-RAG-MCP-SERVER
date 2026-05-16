@@ -156,9 +156,9 @@ class TestExtractKeywords:
         """全停用词查询返回空列表。"""
         proc = _make_processor()
         keywords = proc.extract_keywords("的是在了")
-        # 这些都是停用词，但取决于分词结果
-        # 至少验证不会抛异常
+        # 这些都是停用词，应被过滤为空列表
         assert isinstance(keywords, list)
+        assert len(keywords) == 0
 
 
 # ============================================================

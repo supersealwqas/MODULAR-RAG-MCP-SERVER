@@ -64,6 +64,19 @@ class FakeVectorStore(BaseVectorStore):
                 deleted += 1
         return deleted
 
+    def get_by_ids(self, ids: List[str], **kwargs) -> List[Dict[str, Any]]:
+        """根据 ID 批量获取记录。"""
+        results = []
+        for id_ in ids:
+            record = self._records.get(id_)
+            if record:
+                results.append({
+                    "id": record.id,
+                    "text": record.text,
+                    "metadata": record.metadata,
+                })
+        return results
+
     def count(self, **kwargs) -> int:
         """返回记录总数。"""
         return len(self._records)
