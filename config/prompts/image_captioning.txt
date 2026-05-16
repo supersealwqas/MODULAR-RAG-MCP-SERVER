@@ -1,2 +1,2 @@
-Describe this image in detail, focusing on any text, diagrams, charts, or technical content visible.
-Provide a concise but comprehensive description that would be useful for document retrieval.
+请详细描述这张图片的内容，重点关注其中的文字、图表、流程图和技术内容。
+请提供简洁但全面的描述，使其对文档检索有帮助。

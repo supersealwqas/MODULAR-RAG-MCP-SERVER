@@ -1,0 +1,44 @@
+{
+  "typical_noise_scenario": {
+    "input": "第 3 页\n\n这是正文内容，讨论了机器学习的基本概念。\n\n2024年1月 第3页\n\n\n\n   \n\n深度学习是机器学习的一个子领域。",
+    "expected_contains": ["机器学习", "深度学习"],
+    "expected_not_contains": ["第 3 页", "2024年1月"]
+  },
+  "ocr_errors": {
+    "input": "这是0CR识别的文本，包含一些错误。  l 和1经常混滑。0和O也难以区分。",
+    "expected_contains": ["识别", "文本", "错误"],
+    "description": "OCR错误文本，规则模式保留原文，LLM模式可纠正"
+  },
+  "page_header_footer": {
+    "input": "人工智能导论\n\n第一章 绪论\n\n人工智能（AI）是计算机科学的一个分支。\n\n人工智能导论 - 第1页\n\n它致力于创建能够执行通常需要人类智能的任务的系统。",
+    "expected_contains": ["人工智能", "计算机科学", "人类智能"],
+    "expected_not_contains": ["人工智能导论 - 第1页"]
+  },
+  "excessive_whitespace": {
+    "input": "这是一段    包含多余空白的文本。\n\n\n\n\n连续多个换行需要清理。\t\t制表符也需要处理。",
+    "expected_contains": ["多余空白", "连续多个换行", "制表符"],
+    "expected_not_contains": ["    ", "\n\n\n\n\n", "\t\t"]
+  },
+  "format_markers": {
+    "input": "<div class='content'>\n<!-- 注释内容 -->\n<p>这是HTML格式的文本</p>\n</div>\n\n<style>body{color:red}</style>",
+    "expected_contains": ["HTML格式的文本"],
+    "expected_not_contains": ["<div", "<p>", "</div>", "<style>", "<!--"]
+  },
+  "clean_text": {
+    "input": "这是一段干净的文本，没有任何噪声。内容完整且格式规范。",
+    "expected_contains": ["干净的文本", "没有任何噪声", "格式规范"],
+    "expected_not_contains": [],
+    "description": "干净文本不应被过度清理"
+  },
+  "code_blocks": {
+    "input": "以下是Python代码示例：\n\n```python\ndef hello():\n    print('hello world')\n    return True\n```\n\n代码展示了基本函数定义。",
+    "expected_contains": ["```python", "def hello():", "print('hello world')", "return True", "```"],
+    "expected_not_contains": [],
+    "description": "代码块内部格式必须保留"
+  },
+  "mixed_noise": {
+    "input": "机器学习基础\n\n第2章 监督学习\n\n\n\n监督学习是一种机器学习范式。\n\n<!-- page break -->\n\n   \n\n它通过标注数据来训练模型。\n\n版权所有 © 2024\n\n机器学习基础 - 第15页",
+    "expected_contains": ["监督学习", "机器学习范式", "标注数据", "训练模型"],
+    "expected_not_contains": ["<!-- page break -->", "版权所有", "机器学习基础 - 第15页"]
+  }
+}

@@ -1,5 +1,4 @@
-Clean up the following text chunk by removing noise (page headers, footers, formatting artifacts)
-while preserving all meaningful content. Return only the cleaned text.
+请清理以下文本段，去除噪声（页眉页脚、格式残留等），同时保留所有有意义的内容。只返回清理后的文本。
 
-Text:
+文本：
 {text}

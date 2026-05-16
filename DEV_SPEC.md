@@ -1978,13 +1978,13 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| C1 | 定义核心数据类型/契约（Document/Chunk/ChunkRecord） | [ ] | | |
-| C2 | 文件完整性检查（SHA256） | [ ] | | |
-| C3 | Loader 抽象基类与 PDF Loader | [ ] | | |
-| C4 | Splitter 集成（调用 Libs） | [ ] | | |
-| C5 | Transform 基类 + ChunkRefiner | [ ] | | |
+| C1 | 定义核心数据类型/契约（Document/Chunk/ChunkRecord） | [x] | 2026-05-15 | Document/Chunk/ChunkRecord/ImageRef数据类型，38项测试 |
+| C2 | 文件完整性检查（SHA256） | [x] | 2026-05-15 | FileIntegrityChecker抽象+SQLiteIntegrityChecker实现，28项测试 |
+| C3 | Loader 抽象基类与 PDF Loader | [x] | 2026-05-15 | BaseLoader抽象+PdfLoader实现(markitdown+pymupdf)，26项测试 |
+| C4 | Splitter 集成（调用 Libs） | [x] | 2026-05-16 | DocumentChunker适配器，28项测试 |
+| C5 | Transform 基类 + ChunkRefiner | [x] | 2026-05-16 | BaseTransform抽象+ChunkRefiner规则去噪+LLM增强+降级，31项单元+3项集成测试 |
 | C6 | MetadataEnricher | [ ] | | |
-| C7 | ImageCaptioner | [ ] | | |
+| C7 | ImageCaptioner | [x] | 2026-05-16 | ImageCaptioner实现（Vision LLM调用+降级+占位符替换），29项测试 |
 | C8 | DenseEncoder | [ ] | | |
 | C9 | SparseEncoder | [ ] | | |
 | C10 | BatchProcessor | [ ] | | |
