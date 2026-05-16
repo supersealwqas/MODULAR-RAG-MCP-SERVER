@@ -55,7 +55,7 @@ class VectorUpserter:
             BaseVectorStore 实例
         """
         if self._vector_store is None:
-            self._vector_store = VectorStoreFactory.create(self._settings)
+            self._vector_store = VectorStoreFactory.create(self._settings.vector_store)
         return self._vector_store
 
     @staticmethod

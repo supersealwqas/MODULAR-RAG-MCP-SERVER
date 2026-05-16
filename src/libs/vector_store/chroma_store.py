@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
 from src.libs.vector_store.base_vector_store import (
@@ -76,6 +77,59 @@ class ChromaStore(BaseVectorStore):
         )
         return self._collection
 
+    @staticmethod
+    def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """将嵌套结构序列化为 ChromaDB 兼容格式。
+
+        ChromaDB 只支持 str/int/float/bool 值，嵌套的 dict/list 需要 JSON 序列化。
+
+        参数:
+            metadata: 原始 metadata 字典
+
+        返回:
+            ChromaDB 兼容的 metadata 字典
+        """
+        sanitized = {}
+        for key, value in metadata.items():
+            if isinstance(value, (str, int, float, bool)):
+                sanitized[key] = value
+            elif value is None:
+                sanitized[key] = ""
+            elif isinstance(value, (dict, list)):
+                # 嵌套结构序列化为 JSON 字符串
+                sanitized[key] = json.dumps(value, ensure_ascii=False)
+            else:
+                # 其他类型转为字符串
+                sanitized[key] = str(value)
+        return sanitized
+
+    @staticmethod
+    def _deserialize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """将 ChromaDB 返回的 metadata 反序列化。
+
+        尝试将 JSON 字符串还原为 dict/list。
+
+        参数:
+            metadata: ChromaDB 返回的 metadata
+
+        返回:
+            反序列化后的 metadata
+        """
+        if not metadata:
+            return metadata
+
+        deserialized = {}
+        for key, value in metadata.items():
+            if isinstance(value, str):
+                # 尝试 JSON 反序列化
+                try:
+                    deserialized[key] = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    deserialized[key] = value
+            else:
+                deserialized[key] = value
+        return deserialized
+
     def upsert(self, records: List[VectorRecord], **kwargs) -> int:
         """插入或更新向量记录到 ChromaDB。
 
@@ -98,8 +152,9 @@ class ChromaStore(BaseVectorStore):
         embeddings = [r.vector for r in records]
         documents = [r.text for r in records]
         # ChromaDB 要求 metadata 非空，空 dict 时添加占位字段
+        # 嵌套结构需要序列化为 JSON 字符串
         metadatas = [
-            r.metadata if r.metadata else {"_has_metadata": False}
+            self._sanitize_metadata(r.metadata) if r.metadata else {"_has_metadata": False}
             for r in records
         ]
 
@@ -170,8 +225,9 @@ class ChromaStore(BaseVectorStore):
                 # ChromaDB 返回的是距离（越小越相似），转换为分数（越大越相似）
                 score = 1.0 - distances[i]
                 meta = metadatas[i] or {}
-                # 移除占位字段
+                # 移除占位字段并反序列化 JSON
                 meta.pop("_has_metadata", None)
+                meta = self._deserialize_metadata(meta)
                 query_results.append(QueryResult(
                     id=doc_id,
                     score=score,
@@ -233,6 +289,7 @@ class ChromaStore(BaseVectorStore):
             for i, doc_id in enumerate(results["ids"]):
                 meta = results["metadatas"][i] if results["metadatas"] else {}
                 meta.pop("_has_metadata", None)
+                meta = self._deserialize_metadata(meta)
                 records.append({
                     "id": doc_id,
                     "text": results["documents"][i] if results["documents"] else "",
