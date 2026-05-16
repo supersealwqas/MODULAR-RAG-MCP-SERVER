@@ -201,6 +201,12 @@ def test_trace_recording():
         found = stage in recorded_stages
         safe_print(f"    {stage}: {'✓' if found else '✗'}")
 
+    # 验证 MetadataEnricher 子阶段
+    enrich_stages = [s for s in trace.stages if s['name'] == 'metadata_enrich']
+    safe_print(f"\n  MetadataEnricher 子阶段: {len(enrich_stages)} 条")
+    for s in enrich_stages:
+        safe_print(f"    method={s.get('method')}")
+
     return trace
 
 

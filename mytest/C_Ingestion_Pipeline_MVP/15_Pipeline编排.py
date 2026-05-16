@@ -27,6 +27,7 @@ from src.core.types import Chunk, ChunkRecord, Document
 from src.ingestion.chunking.document_chunker import DocumentChunker
 from src.ingestion.pipeline import IngestionPipeline, PipelineError, PipelineResult
 from src.ingestion.transform.chunk_refiner import ChunkRefiner
+from src.ingestion.transform.metadata_enricher import MetadataEnricher
 from src.libs.loader.base_loader import BaseLoader
 from src.libs.splitter.recursive_splitter import RecursiveSplitter  # noqa: F401
 
@@ -261,12 +262,32 @@ def test_error_handling():
         safe_print(f"  PipelineError: stage={e.stage}, error={e.original_error}")
 
 
+def test_metadata_enricher_integration():
+    section("MetadataEnricher 集成验证")
+    doc = Document(
+        id="test_doc_enrich",
+        text="# RAG 技术概述\n\nRAG 是检索增强生成技术。它结合了检索和生成两种方法。" * 10,
+        metadata={"source_path": "enrich_test.pdf"},
+    )
+    pipeline = _make_pipeline(doc)
+
+    # 验证 Pipeline 使用了 MetadataEnricher
+    enricher = pipeline._get_enricher()
+    safe_print(f"  enricher 类型: {type(enricher).__name__}")
+    safe_print(f"  是 MetadataEnricher: {type(enricher).__name__ == 'MetadataEnricher'}")
+
+    # 运行 Pipeline 并检查 chunk metadata
+    result = pipeline.run("enrich_test.pdf", collection="enrich_test")
+    safe_print(f"  chunk_count: {result.chunk_count}")
+
+
 def main():
     test_full_pipeline()
     test_skip_behavior()
     test_trace_recording()
     test_progress_callback()
     test_error_handling()
+    test_metadata_enricher_integration()
 
     safe_print(f"\n{'='*60}")
     safe_print("  全部手动测试完成!")
