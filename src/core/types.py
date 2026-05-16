@@ -224,3 +224,68 @@ class ChunkRecord:
     def from_json(cls, json_str: str) -> ChunkRecord:
         """从 JSON 字符串反序列化。"""
         return cls.from_dict(json.loads(json_str))
+
+
+# ============================================================
+# ProcessedQuery — 查询预处理结果
+# ============================================================
+
+@dataclass
+class ProcessedQuery:
+    """查询预处理结果数据类，表示 QueryProcessor 的输出。
+
+    属性:
+        original: 原始查询文本
+        keywords: 提取的关键词列表（非空）
+        filters: 解析出的过滤条件字典（可为空 dict）
+    """
+    original: str
+    keywords: List[str] = field(default_factory=list)
+    filters: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """序列化为字典。"""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> ProcessedQuery:
+        """从字典反序列化。"""
+        return cls(
+            original=data["original"],
+            keywords=data.get("keywords", []),
+            filters=data.get("filters", {}),
+        )
+
+
+# ============================================================
+# RetrievalResult — 检索结果
+# ============================================================
+
+@dataclass
+class RetrievalResult:
+    """检索结果数据类，表示单条检索命中。
+
+    属性:
+        chunk_id: 命中 Chunk 的 ID
+        score: 相似度/相关性分数
+        text: Chunk 文本内容
+        metadata: 附加元数据
+    """
+    chunk_id: str
+    score: float
+    text: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """序列化为字典。"""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> RetrievalResult:
+        """从字典反序列化。"""
+        return cls(
+            chunk_id=data["chunk_id"],
+            score=data["score"],
+            text=data.get("text", ""),
+            metadata=data.get("metadata", {}),
+        )

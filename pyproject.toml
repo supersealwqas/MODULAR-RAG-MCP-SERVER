@@ -22,6 +22,7 @@ dependencies = [
     "markitdown[pdf]>=0.1.0",
     "pymupdf>=1.24.0",
     "FlagEmbedding>=1.4.0",
+    "jieba>=0.42.0",
 ]
 
 [project.optional-dependencies]

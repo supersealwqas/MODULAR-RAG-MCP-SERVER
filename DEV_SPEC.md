@@ -1998,7 +1998,7 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| D1 | QueryProcessor（关键词提取 + filters） | [ ] | | |
+| D1 | QueryProcessor（关键词提取 + filters） | [x] | 2026-05-16 | QueryProcessor实现（jieba/正则分词+停用词过滤+filters解析），31项测试 |
 | D2 | DenseRetriever（调用 VectorStore.query） | [ ] | | |
 | D3 | SparseRetriever（BM25 查询） | [ ] | | |
 | D4 | RRF Fusion | [ ] | | |
