@@ -2,12 +2,15 @@
 
 对 Chunk 文本进行分词和词频统计，生成稀疏向量（term weights），
 填充 ChunkRecord.sparse_vector，供下游 BM25Indexer 使用。
-支持中文分词（jieba 优先，降级到正则）、停用词过滤、Trace 记录。
+支持两种后端：
+- jieba：本地分词 + TF 计算（轻量，无需 GPU）
+- bge：BGE-M3 模型的 lexical_weights（质量更高，需要模型文件）
 """
 
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 from collections import Counter
@@ -42,13 +45,12 @@ _DEFAULT_STOPWORDS: Set[str] = {
 class SparseEncoder:
     """稀疏向量编码器：对 Chunk 文本分词并计算 term weights。
 
-    处理流程：
-    1. 对每个 Chunk 文本进行分词
-    2. 过滤停用词和短词
-    3. 计算归一化词频（TF）作为 term weight
-    4. 将结果填充到 ChunkRecord.sparse_vector
+    支持两种后端：
+    - jieba：jieba 分词 + 对数归一化 TF（轻量，无需 GPU）
+    - bge：BGE-M3 模型的 lexical_weights（质量更高，需要模型文件）
 
     属性:
+        backend: 稀疏向量后端（"jieba" 或 "bge"）
         min_token_length: 最小 token 长度（低于此长度的 token 被过滤）
         stopwords: 停用词集合
     """
@@ -59,6 +61,7 @@ class SparseEncoder:
         tokenizer: Optional[Callable[[str], List[str]]] = None,
         stopwords: Optional[Set[str]] = None,
         min_token_length: int = 1,
+        backend: Optional[str] = None,
     ) -> None:
         """初始化 SparseEncoder。
 
@@ -67,13 +70,26 @@ class SparseEncoder:
             tokenizer: 自定义分词函数（可选，默认使用 jieba 或正则）
             stopwords: 停用词集合（可选，默认使用内置停用词）
             min_token_length: 最小 token 长度（默认 1）
+            backend: 稀疏向量后端（"jieba" 或 "bge"，默认从配置读取）
         """
         self._settings = settings
         self._tokenizer = tokenizer
         self.stopwords = stopwords if stopwords is not None else _DEFAULT_STOPWORDS
         self.min_token_length = min_token_length
+        self.backend = backend or getattr(settings.embedding, "sparse_backend", "jieba")
+
+        # jieba 后端状态
         self._jieba = None
         self._jieba_tried = False
+
+        # BGE 后端状态
+        self._bge_model = None
+        self._bge_tokenizer = None
+        self._bge_tried = False
+
+    # ============================================================
+    # jieba 后端
+    # ============================================================
 
     def _try_load_jieba(self) -> Optional[object]:
         """尝试加载 jieba 分词库（延迟加载）。
@@ -111,7 +127,7 @@ class SparseEncoder:
         return tokens
 
     def _tokenize(self, text: str) -> List[str]:
-        """对文本进行分词。
+        """对文本进行分词（jieba 后端）。
 
         参数:
             text: 待分词的文本
@@ -155,15 +171,15 @@ class SparseEncoder:
         tf: Dict[str, float] = {}
         for term, count in counter.items():
             # 对数归一化 TF
-            tf[term] = 1.0 + (0.0 if count <= 0 else __import__("math").log(count))
+            tf[term] = 1.0 + (0.0 if count <= 0 else math.log(count))
         return tf
 
-    def encode(
+    def _encode_with_jieba(
         self,
         chunks: List[Chunk],
         trace: Optional[TraceContext] = None,
     ) -> List[ChunkRecord]:
-        """将 Chunk 列表编码为 ChunkRecord 列表（填充 sparse_vector）。
+        """使用 jieba 后端编码 Chunk 列表。
 
         参数:
             chunks: 待编码的 Chunk 列表
@@ -172,9 +188,6 @@ class SparseEncoder:
         返回:
             ChunkRecord 列表，每个记录包含 sparse_vector
         """
-        if not chunks:
-            return []
-
         start_time = time.time()
         records: List[ChunkRecord] = []
 
@@ -187,18 +200,171 @@ class SparseEncoder:
 
         elapsed_ms = (time.time() - start_time) * 1000
 
-        # 记录 Trace
         if trace:
             total_terms = sum(len(r.sparse_vector) for r in records if r.sparse_vector)
             trace.record_stage(
                 "sparse_encode",
-                method="tf",
+                method="jieba",
                 chunk_count=len(chunks),
                 total_terms=total_terms,
                 elapsed_ms=round(elapsed_ms, 2),
             )
 
         return records
+
+    # ============================================================
+    # BGE-M3 后端
+    # ============================================================
+
+    def _try_load_bge(self) -> bool:
+        """尝试加载 BGE-M3 模型（延迟加载）。
+
+        返回:
+            是否加载成功
+        """
+        if self._bge_tried:
+            return self._bge_model is not None
+        self._bge_tried = True
+
+        try:
+            from src.libs.embedding.bge_embedding import BGEEmbedding
+
+            self._bge_model = BGEEmbedding(
+                model=self._settings.embedding.model,
+                model_path=self._settings.embedding.model_path,
+                use_fp16=True,
+            )
+            # 触发模型加载以获取 tokenizer
+            self._bge_model._load_model()
+            self._bge_tokenizer = self._bge_model._embedding_model.model.tokenizer
+            logger.info("使用 BGE-M3 稀疏编码后端")
+            return True
+        except Exception as e:
+            logger.warning("BGE-M3 模型加载失败，降级到 jieba: %s", e)
+            self._bge_model = None
+            return False
+
+    def _token_ids_to_tokens(self, token_weights: Dict) -> Dict[str, float]:
+        """将 BGE-M3 的 lexical_weights 转换为 token_string 权重。
+
+        BGE-M3 的 lexical_weights 返回 {str(token_id): weight}，
+        需要将 token_id decode 为实际的 token 字符串。
+
+        参数:
+            token_weights: {token_id_str: weight} 字典
+
+        返回:
+            {token_string: weight} 字典，过滤停用词和短词
+        """
+        result: Dict[str, float] = {}
+        for token_id, weight in token_weights.items():
+            # 跳过零权重
+            if weight <= 0:
+                continue
+
+            # 将 token_id 转为 int 后 decode 为 token 字符串
+            try:
+                tid = int(token_id)
+                token_str = self._bge_tokenizer.decode([tid]).strip().lower()
+            except (ValueError, TypeError):
+                # 无法转换为 int，直接使用原始字符串
+                token_str = str(token_id).strip().lower()
+
+            # 过滤：空串、短词、停用词、特殊 token（如 [CLS], [SEP], <s> 等）
+            if (
+                not token_str
+                or len(token_str) < self.min_token_length
+                or token_str in self.stopwords
+                or token_str.startswith("[") and token_str.endswith("]")
+                or token_str.startswith("<") and token_str.endswith(">")
+            ):
+                continue
+
+            # 同一 token 可能出现多次（不同 token_id 映射到同一字符串），取最大权重
+            if token_str not in result or weight > result[token_str]:
+                result[token_str] = weight
+
+        return result
+
+    def _encode_with_bge(
+        self,
+        chunks: List[Chunk],
+        trace: Optional[TraceContext] = None,
+    ) -> List[ChunkRecord]:
+        """使用 BGE-M3 后端编码 Chunk 列表。
+
+        调用 BGE-M3 的 embed_with_sparse() 获取 lexical_weights，
+        然后将 token_id 转换为 token_string，保持 Dict[str, float] 格式。
+
+        参数:
+            chunks: 待编码的 Chunk 列表
+            trace: 可选的追踪上下文
+
+        返回:
+            ChunkRecord 列表，每个记录包含 sparse_vector
+        """
+        if not self._try_load_bge():
+            # BGE 加载失败，降级到 jieba
+            logger.info("BGE 不可用，降级到 jieba 后端")
+            return self._encode_with_jieba(chunks, trace)
+
+        start_time = time.time()
+        texts = [chunk.text for chunk in chunks]
+
+        # 调用 BGE-M3 获取 dense + sparse
+        _, sparse_vecs = self._bge_model.embed_with_sparse(texts)
+
+        records: List[ChunkRecord] = []
+        for chunk, sparse_raw in zip(chunks, sparse_vecs):
+            # 将 {token_id: weight} 转为 {token_string: weight}
+            sparse_str = self._token_ids_to_tokens(sparse_raw)
+            record = self._chunk_to_record(chunk)
+            record.sparse_vector = sparse_str
+            records.append(record)
+
+        elapsed_ms = (time.time() - start_time) * 1000
+
+        if trace:
+            total_terms = sum(len(r.sparse_vector) for r in records if r.sparse_vector)
+            trace.record_stage(
+                "sparse_encode",
+                method="bge",
+                chunk_count=len(chunks),
+                total_terms=total_terms,
+                elapsed_ms=round(elapsed_ms, 2),
+            )
+
+        return records
+
+    # ============================================================
+    # 公共接口
+    # ============================================================
+
+    def encode(
+        self,
+        chunks: List[Chunk],
+        trace: Optional[TraceContext] = None,
+    ) -> List[ChunkRecord]:
+        """将 Chunk 列表编码为 ChunkRecord 列表（填充 sparse_vector）。
+
+        根据 self.backend 分派到对应的编码方法：
+        - "jieba"：jieba 分词 + TF 计算
+        - "bge"：BGE-M3 lexical_weights
+
+        参数:
+            chunks: 待编码的 Chunk 列表
+            trace: 可选的追踪上下文
+
+        返回:
+            ChunkRecord 列表，每个记录包含 sparse_vector
+        """
+        if not chunks:
+            return []
+
+        if self.backend == "bge":
+            return self._encode_with_bge(chunks, trace)
+        else:
+            return self._encode_with_jieba(chunks, trace)
 
     def _chunk_to_record(self, chunk: Chunk) -> ChunkRecord:
         """将 Chunk 转换为 ChunkRecord（不填充向量）。

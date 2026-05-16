@@ -80,9 +80,9 @@
 | C8 | DenseEncoder | [x] | 2026-05-16 | DenseEncoder实现（批量编码+降级+Trace），21项测试 |
 | C9 | SparseEncoder | [x] | 2026-05-16 | SparseEncoder实现（分词+TF+停用词过滤），32项测试 |
 | C10 | BatchProcessor | [x] | 2026-05-16 | BatchProcessor实现（分批编排+Dense/Sparse协调+Trace），21项测试 |
-| C11 | BM25Indexer（倒排索引+IDF计算） | [ ] | | |
-| C12 | VectorUpserter（幂等upsert） | [ ] | | |
-| C13 | ImageStorage（图片存储+SQLite索引） | [ ] | | |
+| C11 | BM25Indexer（倒排索引+IDF计算） | [x] | 2026-05-16 | BM25Indexer实现（倒排索引+IDF+查询+持久化+增量更新+文档移除），37项测试 |
+| C12 | VectorUpserter（幂等upsert） | [x] | 2026-05-16 | VectorUpserter实现（确定性ID+幂等写入+批量+Trace+删除），28项测试 |
+| C13 | ImageStorage（图片存储+SQLite索引） | [x] | 2026-05-16 | ImageStorage实现（文件保存+SQLite索引+集合查询+文档级清理+持久化），23项测试 |
 | C14 | Pipeline 编排（MVP 串起来） | [ ] | | |
 | C15 | 脚本入口 ingest.py | [ ] | | |
 

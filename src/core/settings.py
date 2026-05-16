@@ -102,12 +102,14 @@ class EmbeddingConfig:
         dimensions: 向量维度
         api_key: API 密钥
         model_path: 本地模型路径（用于 BGE 等本地模型）
+        sparse_backend: 稀疏向量后端（"jieba" 或 "bge"）
     """
     provider: str
     model: str
     dimensions: int = 1024
     api_key: str = ""
     model_path: str = ""
+    sparse_backend: str = "jieba"
 
 
 @dataclass
@@ -317,6 +319,7 @@ def _parse_settings(raw: dict) -> Settings:
             dimensions=embedding_raw.get("dimensions", 1024),
             api_key=embedding_raw.get("api_key", ""),
             model_path=embedding_raw.get("model_path", ""),
+            sparse_backend=embedding_raw.get("sparse_backend", "jieba"),
         ),
         splitter=SplitterConfig(
             strategy=splitter_raw.get("strategy", "recursive"),
