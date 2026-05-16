@@ -383,14 +383,6 @@ class TestPrintResult:
 class TestMainWithMockedPipeline:
     """使用 mock Pipeline 测试 main() 入口。"""
 
-    def _patch_pipeline(self, mock_pipeline_class):
-        """辅助方法：patch load_settings 和 IngestionPipeline。"""
-        settings = _make_settings()
-        return patch.multiple(
-            "scripts.ingest",
-            load_settings=MagicMock(return_value=settings),
-        )
-
     def test_main_single_file_success(self, capsys):
         """单文件成功摄取。"""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -570,9 +562,10 @@ class TestMainWithMockedPipeline:
                  patch("scripts.ingest.IngestionPipeline") as mock_pipe_cls:
                 mock_ls.return_value = _make_settings()
                 mock_pipe = MagicMock()
+                # _collect_files 按字母排序: bad.pdf 先于 good.pdf
                 mock_pipe.run.side_effect = [
-                    success_result,
                     PipelineError("load", RuntimeError("损坏")),
+                    success_result,
                 ]
                 mock_pipe_cls.return_value = mock_pipe
 
