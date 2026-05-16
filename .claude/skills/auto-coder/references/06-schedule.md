@@ -92,11 +92,11 @@
 |---------|---------|------|---------|------|
 | D1 | QueryProcessor（关键词提取 + filters） | [x] | 2026-05-16 | QueryProcessor实现（jieba/正则分词+停用词过滤+filters解析），31项测试 |
 | D2 | DenseRetriever（调用 VectorStore.query） | [x] | 2026-05-16 | DenseRetriever实现（embedding+vector_store编排+依赖注入+Trace），17项测试 |
-| D3 | SparseRetriever（BM25 查询） | [ ] | | |
-| D4 | RRF Fusion | [ ] | | |
-| D5 | HybridSearch 编排 | [ ] | | |
-| D6 | Reranker（Core 层编排 + Fallback） | [ ] | | |
-| D7 | 脚本入口 query.py（查询可用） | [ ] | | |
+| D3 | SparseRetriever（BM25 查询） | [x] | 2026-05-16 | SparseRetriever实现（BM25检索+VectorStore获取文本+依赖注入+Trace），17项测试 |
+| D4 | RRF Fusion | [x] | 2026-05-16 | Fusion RRF实现（多排名融合+k可配置+deterministic+Trace），18项测试 |
+| D5 | HybridSearch 编排 | [x] | 2026-05-16 | HybridSearch编排（Dense+Sparse+RRF融合+Metadata过滤+降级），17项测试 |
+| D6 | Reranker（Core 层编排 + Fallback） | [x] | 2026-05-16 | Reranker编排（后端接入+异常回退+fallback标记+Trace），21项测试 |
+| D7 | 脚本入口 query.py（查询可用） | [x] | 2026-05-16 | query.py CLI入口（HybridSearch+Reranker+参数解析+Verbose模式） |
 
 #### 阶段 E：MCP Server 层与 Tools
 
