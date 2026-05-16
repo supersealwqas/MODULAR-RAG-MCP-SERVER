@@ -77,9 +77,9 @@
 | C5 | Transform 基类 + ChunkRefiner | [x] | 2026-05-16 | BaseTransform抽象+ChunkRefiner规则去噪+LLM增强+降级，31项单元+3项集成测试 |
 | C6 | MetadataEnricher | [ ] | | |
 | C7 | ImageCaptioner | [x] | 2026-05-16 | ImageCaptioner实现（Vision LLM调用+降级+占位符替换），29项测试 |
-| C8 | DenseEncoder | [ ] | | |
-| C9 | SparseEncoder | [ ] | | |
-| C10 | BatchProcessor | [ ] | | |
+| C8 | DenseEncoder | [x] | 2026-05-16 | DenseEncoder实现（批量编码+降级+Trace），21项测试 |
+| C9 | SparseEncoder | [x] | 2026-05-16 | SparseEncoder实现（分词+TF+停用词过滤），32项测试 |
+| C10 | BatchProcessor | [x] | 2026-05-16 | BatchProcessor实现（分批编排+Dense/Sparse协调+Trace），21项测试 |
 | C11 | BM25Indexer（倒排索引+IDF计算） | [ ] | | |
 | C12 | VectorUpserter（幂等upsert） | [ ] | | |
 | C13 | ImageStorage（图片存储+SQLite索引） | [ ] | | |
