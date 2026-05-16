@@ -112,3 +112,16 @@ class BaseVectorStore(ABC):
             记录总数
         """
         raise NotImplementedError("此存储后端未实现 count 方法")
+
+    @abstractmethod
+    def get_by_ids(self, ids: List[str], **kwargs) -> List[Dict[str, Any]]:
+        """根据 ID 批量获取记录。
+
+        参数:
+            ids: 记录 ID 列表
+            **kwargs: 其他参数
+
+        返回:
+            记录字典列表，每个字典包含 id、text、metadata 字段
+        """
+        ...
