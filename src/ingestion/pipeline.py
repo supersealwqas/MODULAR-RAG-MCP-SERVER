@@ -24,6 +24,7 @@ from src.ingestion.storage.vector_upserter import VectorUpserter
 from src.ingestion.transform.base_transform import BaseTransform
 from src.ingestion.transform.chunk_refiner import ChunkRefiner
 from src.ingestion.transform.image_captioner import ImageCaptioner
+from src.ingestion.transform.metadata_enricher import MetadataEnricher
 from src.libs.loader.base_loader import BaseLoader
 from src.libs.loader.file_integrity import FileIntegrityChecker, SQLiteIntegrityChecker
 from src.libs.loader.pdf_loader import PdfLoader
@@ -110,6 +111,7 @@ class IngestionPipeline:
         chunker: Optional[DocumentChunker] = None,
         refiner: Optional[BaseTransform] = None,
         captioner: Optional[BaseTransform] = None,
+        enricher: Optional[BaseTransform] = None,
         batch_processor: Optional[BatchProcessor] = None,
         vector_upserter: Optional[VectorUpserter] = None,
         bm25_indexer: Optional[BM25Indexer] = None,
@@ -124,6 +126,7 @@ class IngestionPipeline:
             chunker: 文档切分器（可选，默认 DocumentChunker）
             refiner: Chunk 去噪器（可选，默认 ChunkRefiner 规则模式）
             captioner: 图片描述器（可选，默认 ImageCaptioner）
+            enricher: 元数据增强器（可选，默认 MetadataEnricher 规则模式）
             batch_processor: 批量编码器（可选，默认 BatchProcessor）
             vector_upserter: 向量写入器（可选，默认 VectorUpserter）
             bm25_indexer: BM25 索引器（可选，默认 BM25Indexer）
@@ -135,6 +138,7 @@ class IngestionPipeline:
         self._chunker = chunker
         self._refiner = refiner
         self._captioner = captioner
+        self._enricher = enricher
         self._batch_processor = batch_processor
         self._vector_upserter = vector_upserter
         self._bm25_indexer = bm25_indexer
@@ -173,6 +177,12 @@ class IngestionPipeline:
         if self._captioner is None:
             self._captioner = ImageCaptioner(self._settings, use_vision_llm=False)
         return self._captioner
+
+    def _get_enricher(self) -> BaseTransform:
+        """获取元数据增强器（规则模式，不依赖 LLM）。"""
+        if self._enricher is None:
+            self._enricher = MetadataEnricher(self._settings, use_llm=False)
+        return self._enricher
 
     def _get_batch_processor(self) -> BatchProcessor:
         """获取批量编码器。"""
@@ -397,6 +407,11 @@ class IngestionPipeline:
             captioner = self._get_captioner()
             chunks = captioner.transform(chunks, trace=trace)
             logger.info("图片描述完成: %d chunks", len(chunks))
+
+            # 4c: MetadataEnricher 元数据增强
+            enricher = self._get_enricher()
+            chunks = enricher.transform(chunks, trace=trace)
+            logger.info("元数据增强完成: %d chunks", len(chunks))
 
             if trace:
                 trace.record_stage("transform", chunk_count=len(chunks))

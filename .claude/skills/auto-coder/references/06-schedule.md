@@ -75,7 +75,7 @@
 | C3 | Loader 抽象基类与 PDF Loader | [x] | 2026-05-15 | BaseLoader抽象+PdfLoader实现(markitdown+pymupdf)，26项测试 |
 | C4 | Splitter 集成（调用 Libs） | [x] | 2026-05-16 | DocumentChunker适配器，28项测试 |
 | C5 | Transform 基类 + ChunkRefiner | [x] | 2026-05-16 | BaseTransform抽象+ChunkRefiner规则去噪+LLM增强+降级，31项单元+3项集成测试 |
-| C6 | MetadataEnricher | [ ] | | |
+| C6 | MetadataEnricher | [x] | 2026-05-16 | MetadataEnricher实现（规则增强+LLM增强+降级+JSON解析），61项测试 |
 | C7 | ImageCaptioner | [x] | 2026-05-16 | ImageCaptioner实现（Vision LLM调用+降级+占位符替换），29项测试 |
 | C8 | DenseEncoder | [x] | 2026-05-16 | DenseEncoder实现（批量编码+降级+Trace），21项测试 |
 | C9 | SparseEncoder | [x] | 2026-05-16 | SparseEncoder实现（分词+TF+停用词过滤），32项测试 |
@@ -165,7 +165,7 @@
 | 阶段 G | 6 | 0 | 0% |
 | 阶段 H | 5 | 0 | 0% |
 | 阶段 I | 5 | 0 | 0% |
-| **总计** | **68** | **35** | **51%** |
+| **总计** | **68** | **36** | **53%** |
 
 
 ---
