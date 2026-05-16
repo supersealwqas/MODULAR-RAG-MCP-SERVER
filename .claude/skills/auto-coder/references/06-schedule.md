@@ -83,8 +83,8 @@
 | C11 | BM25Indexer（倒排索引+IDF计算） | [x] | 2026-05-16 | BM25Indexer实现（倒排索引+IDF+查询+持久化+增量更新+文档移除），37项测试 |
 | C12 | VectorUpserter（幂等upsert） | [x] | 2026-05-16 | VectorUpserter实现（确定性ID+幂等写入+批量+Trace+删除），28项测试 |
 | C13 | ImageStorage（图片存储+SQLite索引） | [x] | 2026-05-16 | ImageStorage实现（文件保存+SQLite索引+集合查询+文档级清理+持久化），23项测试 |
-| C14 | Pipeline 编排（MVP 串起来） | [ ] | | |
-| C15 | 脚本入口 ingest.py | [ ] | | |
+| C14 | Pipeline 编排（MVP 串起来） | [x] | 2026-05-16 | IngestionPipeline实现（6阶段串行编排+增量跳过+异常包装+Trace+进度回调），26项测试 |
+| C15 | 脚本入口 ingest.py | [x] | 2026-05-16 | ingest.py CLI脚本（--path/--collection/--force/--config），25项e2e测试 |
 
 #### 阶段 D：Retrieval MVP
 

@@ -195,8 +195,10 @@ class ChromaStore(BaseVectorStore):
             return 0
 
         collection = self._get_collection()
+        before = collection.count()
         collection.delete(ids=ids)
-        return len(ids)
+        after = collection.count()
+        return before - after
 
     def count(self, **kwargs) -> int:
         """获取集合中的记录总数。
