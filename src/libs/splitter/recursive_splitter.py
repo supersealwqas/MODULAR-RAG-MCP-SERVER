@@ -12,8 +12,7 @@
 
 from __future__ import annotations
 
-import re
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 from src.libs.splitter.base_splitter import BaseSplitter
 from src.libs.splitter.splitter_factory import register_splitter
@@ -117,7 +116,8 @@ class RecursiveSplitter(BaseSplitter):
     def _split_with_code_protection(self, text: str) -> List[str]:
         """保护 Markdown 代码块不被切碎。
 
-        将代码块整体提取出来作为独立块，对非代码部分递归切分。
+        使用字符扫描提取代码块，避免正则回溯风险。
+        对于未闭合的代码块，将其整体视为代码块处理。
 
         参数:
             text: 原始文本
@@ -125,23 +125,22 @@ class RecursiveSplitter(BaseSplitter):
         返回:
             切分后的文本块列表
         """
-        # 匹配 ``` 包裹的代码块
-        code_block_pattern = re.compile(r"```[\s\S]*?```", re.MULTILINE)
+        code_blocks = self._scan_code_blocks(text)
         parts = []
         last_end = 0
 
-        for match in code_block_pattern.finditer(text):
+        for start, end, lang in code_blocks:
             # 代码块前的普通文本
-            before = text[last_end:match.start()]
+            before = text[last_end:start]
             if before.strip():
                 parts.extend(self._recursive_split(before, self.separators))
             # 代码块整体作为一个块（如果太长则内部切分）
-            code_block = match.group()
+            code_block = text[start:end]
             if self._len(code_block) <= self.chunk_size:
                 parts.append(code_block)
             else:
-                parts.extend(self._split_long_code_block(code_block))
-            last_end = match.end()
+                parts.extend(self._split_long_code_block(code_block, lang))
+            last_end = end
 
         # 最后一段普通文本
         after = text[last_end:]
@@ -150,13 +149,86 @@ class RecursiveSplitter(BaseSplitter):
 
         return parts
 
-    def _split_long_code_block(self, code_block: str) -> List[str]:
+    def _scan_code_blocks(self, text: str) -> List[Tuple[int, int, str]]:
+        """字符扫描提取 Markdown 代码块位置，避免正则回溯。
+
+        扫描策略：
+        - 找到行首的 ``` 作为代码块起点
+        - 从起点之后持续向后查找，直到找到行首的 ``` 作为终点
+        - 未闭合的代码块延伸到文本末尾
+
+        参数:
+            text: 原始文本
+
+        返回:
+            [(start, end, lang), ...] 代码块的起止位置和语言标记列表
+        """
+        blocks = []
+        i = 0
+        text_len = len(text)
+
+        while i < text_len:
+            # 查找 ```
+            idx = text.find("```", i)
+            if idx == -1:
+                break
+
+            # 确认 ``` 在行首（或文本开头）
+            if idx > 0 and text[idx - 1] not in ("\n", "\r"):
+                i = idx + 3
+                continue
+
+            # 提取语言标记（``` 后到行尾的内容）
+            lang_start = idx + 3
+            lang_end = text.find("\n", lang_start)
+            if lang_end == -1:
+                lang_end = text_len
+            lang = text[lang_start:lang_end].strip()
+
+            # 持续向后查找行首的闭合 ```
+            search_from = lang_end
+            close_idx = -1
+            while True:
+                pos = text.find("```", search_from)
+                if pos == -1:
+                    break
+                # 判断是否为行首的合法闭合标记
+                if pos == 0 or text[pos - 1] in ("\n", "\r"):
+                    close_idx = pos
+                    break
+                # 不是行首，跳过这个假标记继续往后找
+                search_from = pos + 3
+
+            # 未闭合：延伸到文本末尾
+            if close_idx == -1:
+                blocks.append((idx, text_len, lang))
+                break
+
+            # 计算结束位置（包含 ``` 本身 + 行尾）
+            end_pos = close_idx + 3
+            if end_pos < text_len and text[end_pos] in ("\n", "\r"):
+                # Windows \r\n 需要吞掉两个字符
+                if end_pos + 1 < text_len and text[end_pos:end_pos + 2] == "\r\n":
+                    end_pos += 2
+                else:
+                    end_pos += 1
+
+            blocks.append((idx, end_pos, lang))
+            i = end_pos
+
+        return blocks
+
+    def _split_long_code_block(self, code_block: str, lang: str = "") -> List[str]:
         """对超长代码块进行内部切分。
 
         保留开头的 ``` 标记和结尾的 ``` 标记。
+        每个子块都是语法上完整的闭合代码块：
+        - 非首块：补上 ```lang 前缀
+        - 非末块：补上 ``` 闭合后缀
 
         参数:
             code_block: 代码块文本
+            lang: 代码语言标记（如 "python"）
 
         返回:
             切分后的代码块片段列表
@@ -177,6 +249,19 @@ class RecursiveSplitter(BaseSplitter):
 
         if current_chunk:
             chunks.append("\n".join(current_chunk))
+
+        # 确保每个子块都是语法上完整的闭合代码块
+        if len(chunks) > 1:
+            lang_prefix = f"```{lang}\n"
+            close_suffix = "\n```"
+
+            for i in range(len(chunks)):
+                # 非首块：补上语言标记前缀
+                if i > 0 and not chunks[i].startswith("```"):
+                    chunks[i] = lang_prefix + chunks[i]
+                # 非末块：补上闭合标记后缀
+                if i < len(chunks) - 1 and not chunks[i].endswith("```"):
+                    chunks[i] = chunks[i] + close_suffix
 
         return chunks
 
@@ -332,7 +417,9 @@ class RecursiveSplitter(BaseSplitter):
     def _hard_split(self, text: str) -> List[str]:
         """硬切分：按 step 步长切分为小片段，供 _merge_splits 处理 overlap。
 
-        步长 = chunk_size - chunk_overlap，确保合并时能产生正确 overlap。
+        当 length_function 不是 len 时（如 token 计数），通过采样估算
+        字符/token 比例，按比例缩放字符切片范围，避免切出过小的块。
+        下一个 chunk 的起点基于实际截断位置往回退 overlap，确保无数据丢失。
 
         参数:
             text: 待切分文本
@@ -340,20 +427,86 @@ class RecursiveSplitter(BaseSplitter):
         返回:
             切分后的文本片段列表
         """
-        step = max(1, self.chunk_size - self.chunk_overlap)
+        text_char_len = len(text)
+        text_token_len = self._len(text)
+
+        # 估算字符/token 比例：如果 length_function 不是 len，
+        # 用采样方式估算每个 token 对应多少字符
+        if text_token_len > 0 and self.length_function is not len:
+            ratio = text_char_len / text_token_len
+        else:
+            ratio = 1.0
+
+        # 按比例缩放 chunk_size 和 overlap 到字符维度
+        char_chunk_size = max(1, int(self.chunk_size * ratio))
+        char_overlap = max(0, int(self.chunk_overlap * ratio))
+
         chunks = []
         start = 0
-        text_len = self._len(text)
-        while start < text_len:
-            end = min(start + self.chunk_size, text_len)
+        while start < text_char_len:
+            end = min(start + char_chunk_size, text_char_len)
+            # 尝试在词边界（空格、换行）处截断，避免切断词语
+            if end < text_char_len:
+                end = self._find_word_boundary(text, end)
+
+            # 防御：_find_word_boundary 可能将 end 退回到 start 之前
+            if end <= start:
+                end = min(start + char_chunk_size, text_char_len)
+
             chunks.append(text[start:end])
-            start += step
+
+            # 下一个起点基于实际截断的 end 往回退 overlap，确保无数据丢失
+            next_start = end - char_overlap
+            # 必须确保 start 在前进，防止 overlap 过大导致死循环
+            start = max(start + 1, next_start)
+
         return chunks
+
+    def _find_word_boundary(self, text: str, pos: int, search_range: int = 50) -> int:
+        """在 pos 附近寻找词边界（空格、换行、标点）。
+
+        优先在 pos 之前找到最近的边界，找不到则在 pos 之后查找。
+
+        参数:
+            text: 原始文本
+            pos: 目标位置
+            search_range: 搜索范围（字符数）
+
+        返回:
+            调整后的位置
+        """
+        boundaries = {
+            " ", "\n", "\r", "\t",
+            # 中文标点
+            "。", "！", "？", "；", "，", "：", "、",
+            # 中文括号/引号
+            "（", "）", "【", "】", "「", "」", """, """, "'", "'",
+            # 英文标点
+            ".", "!", "?", ";", ",",
+            # 英文括号/冒号
+            ":", ")", "]", "}",
+        }
+
+        # 向前搜索
+        for offset in range(search_range):
+            check = pos - offset
+            if check > 0 and text[check - 1] in boundaries:
+                return check
+
+        # 向后搜索
+        for offset in range(1, search_range):
+            check = pos + offset
+            if check < len(text) and text[check - 1] in boundaries:
+                return check
+
+        return pos
 
     def _protect_headers(self, chunks: List[str]) -> List[str]:
         """保护 Markdown 标题不与后续内容分离。
 
-        如果一个块只包含标题行（# 开头），则与下一个块合并。
+        两种情况触发合并：
+        1. 纯标题块（仅一行 # 开头）→ 与下一个块合并
+        2. 标题首行块（首行 # 开头，内容过短）→ 与下一个块合并
 
         参数:
             chunks: 文本块列表
@@ -368,21 +521,26 @@ class RecursiveSplitter(BaseSplitter):
         i = 0
         while i < len(chunks):
             chunk = chunks[i]
-            # 检查是否是纯标题块
             lines = chunk.strip().split("\n")
-            is_header_only = (
-                len(lines) == 1
-                and lines[0].startswith("#")
-                and i + 1 < len(chunks)
-            )
+            first_line = lines[0].strip()
 
-            if is_header_only:
-                # 合并标题与下一个块
-                next_chunk = chunks[i + 1]
-                if self._len(chunk) + self._len(next_chunk) + 1 <= self.chunk_size:
-                    result.append(chunk + "\n" + next_chunk)
-                    i += 2
-                    continue
+            # 判断是否为需要保护的标题块
+            is_header = first_line.startswith("#") and i + 1 < len(chunks)
+            if is_header:
+                # 情况1：纯标题块（只有一行）
+                # 情况2：首行是标题，但内容很短（不足 chunk_size 的 1/4）
+                is_pure_header = len(lines) == 1
+                is_short_header = (
+                    len(lines) > 1
+                    and self._len(chunk.strip()) < self.chunk_size // 4
+                )
+
+                if is_pure_header or is_short_header:
+                    next_chunk = chunks[i + 1]
+                    if self._len(chunk) + self._len(next_chunk) + 1 <= self.chunk_size:
+                        result.append(chunk + "\n" + next_chunk)
+                        i += 2
+                        continue
 
             result.append(chunk)
             i += 1
