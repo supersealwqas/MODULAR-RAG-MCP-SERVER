@@ -184,76 +184,101 @@ class PdfLoader(BaseLoader):
     def _align_and_replace_images(
         self, text: str, images: List[ImageRef]
     ) -> str:
-        """将 MarkItDown 文本中的原生图片标记替换为系统占位符。
+        """将图片占位符智能融合到文本中。
 
-        扫描 MarkItDown 产出的 Markdown 图片语法（如 ![alt](url)），
-        按顺序替换为 [IMAGE: {id}] 占位符，并精准更新每个 ImageRef 的
-        text_offset 和 text_length。
-
-        若 PyMuPDF 提取的图片数量多于文本中的图片标记（如背景图），
-        剩余图片附在文档末尾。
-
-        参数:
-            text: MarkItDown 提取的 Markdown 文本
-            images: PyMuPDF 提取的 ImageRef 列表
-
-        返回:
-            替换占位符后的文本
+        尝试 1: 扫描 MarkItDown 产出的 Markdown 图片语法进行精准替换（适用于 Word/HTML 等）。
+        尝试 2: (针对 PDF) 若未发现图片语法，按图片所在页码(page)比例，
+                启发式地将图片分散插入到对应的上下文段落中。
         """
         if not images:
             return text
 
-        # 匹配 MarkItDown 产出的 Markdown 图片语法
         md_image_pattern = re.compile(r"!\[.*?\]\(.*?\)")
-
-        # 找到文本中所有原生图片标记的位置
         matches = list(md_image_pattern.finditer(text))
 
-        result_parts = []
-        last_end = 0
-        img_idx = 0
+        # ==========================================
+        # 尝试 1：精确匹配替换 (适用于原生带图片标记的文档)
+        # ==========================================
+        if len(matches) > 0:
+            result_parts = []
+            last_end = 0
+            img_idx = 0
 
-        for match in matches:
-            # match 之前的普通文本
-            result_parts.append(text[last_end:match.start()])
+            for match in matches:
+                result_parts.append(text[last_end:match.start()])
+                if img_idx < len(images):
+                    img = images[img_idx]
+                    placeholder = make_image_placeholder(img.id)
+                    img.text_offset = len("".join(result_parts))
+                    img.text_length = len(placeholder)
+                    result_parts.append(placeholder)
+                    img_idx += 1
+                else:
+                    result_parts.append(match.group())
+                last_end = match.end()
 
+            result_parts.append(text[last_end:])
+            result_text = "".join(result_parts)
+
+            # 多余图片兜底附在末尾 (修复了换行粘连 Bug)
             if img_idx < len(images):
-                img = images[img_idx]
-                placeholder = make_image_placeholder(img.id)
+                if not result_text.endswith("\n\n"):
+                    result_text += "\n" if result_text.endswith("\n") else "\n\n"
+                for remaining_img in images[img_idx:]:
+                    placeholder = make_image_placeholder(remaining_img.id)
+                    remaining_img.text_offset = len(result_text)
+                    remaining_img.text_length = len(placeholder)
+                    result_text += placeholder + "\n\n"
+                result_text = result_text.strip() + "\n"
 
-                # 记录占位符在新文本中的准确位置
-                img.text_offset = len("".join(result_parts))
-                img.text_length = len(placeholder)
+            return result_text
 
-                result_parts.append(placeholder)
-                img_idx += 1
+        # ==========================================
+        # 尝试 2：启发式页面映射 (专治 PDF 被吞图片的场景)
+        # ==========================================
+        logger.info("未发现原生图片标记，启动按页码分布的启发式插入...")
+
+        # 找出最大页码，用于计算比例
+        max_page = max((img.page for img in images), default=1)
+        text_len = len(text)
+
+        # 确保图片按页码顺序插入
+        sorted_images = sorted(images, key=lambda x: x.page)
+
+        result_parts = []
+        last_idx = 0
+
+        for img in sorted_images:
+            # 估算该页在全文中的大致字符位置
+            # 减去 0.5 是为了让图片尽量插在这一页内容的中间偏上位置
+            estimated_pos = int(max(0, (img.page - 0.5)) / max_page * text_len)
+
+            # 为了不切断句子，我们在估算位置附近寻找最近的段落边界 (\n\n)
+            insert_pos = text.find("\n\n", estimated_pos)
+
+            if insert_pos == -1:  # 如果往后找不到，往前找
+                insert_pos = text.rfind("\n\n", 0, estimated_pos)
+
+            if insert_pos == -1:  # 还是找不到，就硬插
+                insert_pos = estimated_pos
             else:
-                # 图片标记比 PyMuPDF 提取的图片多，保留原标记
-                result_parts.append(match.group())
+                insert_pos += 2  # 放在 \n\n 之后
 
-            last_end = match.end()
+            # 确保插入位置严格向后，防止乱序
+            insert_pos = max(insert_pos, last_idx)
 
-        # 拼接剩余文本
-        result_parts.append(text[last_end:])
-        result_text = "".join(result_parts)
+            # 截取上一段文本
+            result_parts.append(text[last_idx:insert_pos])
 
-        # 兜底：PyMuPDF 提取的图片比文本标记多（如背景图），附在末尾
-        if img_idx < len(images):
-            # 确保现有文本末尾有干净的双换行
-            if not result_text.endswith("\n\n"):
-                result_text += "\n" if result_text.endswith("\n") else "\n\n"
+            # 计算并插入占位符
+            placeholder = make_image_placeholder(img.id)
+            img.text_offset = len("".join(result_parts))
+            img.text_length = len(placeholder)
 
-            # 依次追加剩余图片
-            for remaining_img in images[img_idx:]:
-                placeholder = make_image_placeholder(remaining_img.id)
+            result_parts.append(placeholder + "\n\n")
+            last_idx = insert_pos
 
-                remaining_img.text_offset = len(result_text)
-                remaining_img.text_length = len(placeholder)
+        # 补充剩余全文
+        result_parts.append(text[last_idx:])
 
-                # 占位符自带双换行，防止后续图片粘连
-                result_text += placeholder + "\n\n"
-
-            # 去除最后多余的空白
-            result_text = result_text.strip() + "\n"
-
-        return result_text
+        return "".join(result_parts)

@@ -167,21 +167,24 @@ class IngestionPipeline:
         return self._chunker
 
     def _get_refiner(self) -> BaseTransform:
-        """获取 Chunk 去噪器（规则模式，不依赖 LLM）。"""
+        """获取 Chunk 去噪器。"""
         if self._refiner is None:
-            self._refiner = ChunkRefiner(self._settings, use_llm=False)
+            use_llm = getattr(self._settings.pipeline, "use_llm_refiner", False)
+            self._refiner = ChunkRefiner(self._settings, use_llm=use_llm)
         return self._refiner
 
     def _get_captioner(self) -> BaseTransform:
         """获取图片描述器。"""
         if self._captioner is None:
-            self._captioner = ImageCaptioner(self._settings, use_vision_llm=False)
+            use_vision = getattr(self._settings.pipeline, "use_vision_llm", False)
+            self._captioner = ImageCaptioner(self._settings, use_vision_llm=use_vision)
         return self._captioner
 
     def _get_enricher(self) -> BaseTransform:
-        """获取元数据增强器（规则模式，不依赖 LLM）。"""
+        """获取元数据增强器。"""
         if self._enricher is None:
-            self._enricher = MetadataEnricher(self._settings, use_llm=False)
+            use_llm = getattr(self._settings.pipeline, "use_llm_enricher", False)
+            self._enricher = MetadataEnricher(self._settings, use_llm=use_llm)
         return self._enricher
 
     def _get_batch_processor(self) -> BatchProcessor:

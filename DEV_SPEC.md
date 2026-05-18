@@ -2021,7 +2021,7 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| F1 | TraceContext 增强（finish + 耗时统计 + trace_type） | [ ] | | |
+| F1 | TraceContext 增强（finish + 耗时统计 + trace_type） | [x] | 2026-05-18 | 已实现 finish、elapsed_ms、to_dict 并在 Collector 中打通 |
 | F2 | 结构化日志 logger（JSON Lines） | [ ] | | |
 | F3 | 在 Query 链路打点 | [ ] | | |
 | F4 | 在 Ingestion 链路打点 | [ ] | | |

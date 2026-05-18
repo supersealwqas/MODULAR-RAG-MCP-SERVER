@@ -221,6 +221,20 @@ class ObservabilityConfig:
 
 
 @dataclass
+class PipelineConfig:
+    """摄取管线行为配置。
+
+    属性:
+        use_vision_llm: 是否启用 Vision LLM 生成图片描述（默认 False）
+        use_llm_refiner: 是否启用 LLM 辅助去噪（默认 False）
+        use_llm_enricher: 是否启用 LLM 辅助元数据增强（默认 False）
+    """
+    use_vision_llm: bool = False
+    use_llm_refiner: bool = False
+    use_llm_enricher: bool = False
+
+
+@dataclass
 class Settings:
     """根配置容器，包含所有子系统配置。
 
@@ -243,6 +257,7 @@ class Settings:
     rerank: RerankConfig
     evaluation: EvaluationConfig
     observability: ObservabilityConfig
+    pipeline: PipelineConfig
 
 
 def load_settings(path: str = "config/settings.yaml") -> Settings:
@@ -292,6 +307,7 @@ def _parse_settings(raw: dict) -> Settings:
     rerank_raw = raw.get("rerank", {})
     evaluation_raw = raw.get("evaluation", {})
     observability_raw = raw.get("observability", {})
+    pipeline_raw = raw.get("pipeline", {})
 
     return Settings(
         llm=LLMConfig(
@@ -355,6 +371,11 @@ def _parse_settings(raw: dict) -> Settings:
         observability=ObservabilityConfig(
             log_level=observability_raw.get("log_level", "INFO"),
             traces_file=observability_raw.get("traces_file", "logs/traces.jsonl"),
+        ),
+        pipeline=PipelineConfig(
+            use_vision_llm=pipeline_raw.get("use_vision_llm", False),
+            use_llm_refiner=pipeline_raw.get("use_llm_refiner", False),
+            use_llm_enricher=pipeline_raw.get("use_llm_enricher", False),
         ),
     )
 
