@@ -16,6 +16,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
+# 修复 Windows 终端中文/emoji 编码问题
+if sys.stdout.encoding and sys.stdout.encoding.lower().replace("-", "") != "utf8":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr.encoding and sys.stderr.encoding.lower().replace("-", "") != "utf8":
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # 确保项目根目录在 sys.path 中
 _project_root = str(Path(__file__).parent.parent)
 if _project_root not in sys.path:

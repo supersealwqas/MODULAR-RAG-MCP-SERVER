@@ -173,7 +173,8 @@ class DocumentChunker:
         """计算每个 chunk 在原文中的字符偏移范围。
 
         使用顺序搜索定位每个 chunk 在原文中的位置。
-        对于包含 overlap 的 chunk，从上次结束位置之后开始搜索。
+        策略：先在上一 chunk 终点直接验证（处理重复字符文本），
+        不匹配再用 find 搜索（处理 overlap 和非均匀文本）。
 
         参数:
             original_text: 文档原始全文
@@ -183,13 +184,28 @@ class DocumentChunker:
             [(start_offset, end_offset), ...] 列表
         """
         offsets = []
-        search_start = 0
+        expected_pos = 0
         for chunk_text in chunks:
-            idx = original_text.find(chunk_text, search_start)
-            if idx >= 0:
-                offsets.append((idx, idx + len(chunk_text)))
-                search_start = idx + len(chunk_text)
+            if not chunk_text:
+                offsets.append((expected_pos, expected_pos))
+                continue
+
+            chunk_len = len(chunk_text)
+
+            # 策略1：直接在预期位置验证（处理重复字符文本的歧义）
+            if (expected_pos + chunk_len <= len(original_text)
+                    and original_text[expected_pos:expected_pos + chunk_len] == chunk_text):
+                idx = expected_pos
             else:
-                # 找不到时记录当前位置估算
-                offsets.append((search_start, search_start + len(chunk_text)))
+                # 策略2：用 find 搜索（处理 overlap 或 strip 后的文本）
+                idx = original_text.find(chunk_text, expected_pos)
+
+            if idx >= 0:
+                offsets.append((idx, idx + chunk_len))
+                # 下一 chunk 的预期起点：当前起点 + chunk 长度
+                # overlap 场景下 find 会自动找到正确位置
+                expected_pos = idx + chunk_len
+            else:
+                # 精准匹配失败（如 strip 导致），保持游标不剧烈跳动
+                offsets.append((expected_pos, expected_pos + chunk_len))
         return offsets

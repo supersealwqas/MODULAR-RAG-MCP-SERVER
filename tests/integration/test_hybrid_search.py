@@ -41,7 +41,11 @@ def _make_settings_stub(**kwargs) -> Settings:
         embedding=MagicMock(),
         splitter=MagicMock(),
         vector_store=MagicMock(),
-        retrieval=MagicMock(top_k=kwargs.get("top_k", 10)),
+        retrieval=MagicMock(
+            top_k=kwargs.get("top_k", 10),
+            dense_weight=kwargs.get("dense_weight", 0.7),
+            sparse_weight=kwargs.get("sparse_weight", 0.3),
+        ),
         rerank=MagicMock(),
         evaluation=MagicMock(),
         observability=MagicMock(),

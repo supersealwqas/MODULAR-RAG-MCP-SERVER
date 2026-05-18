@@ -72,9 +72,9 @@ class PdfLoader(BaseLoader):
         if self.extract_images:
             try:
                 images = self._extract_images(path, doc_hash, collection)
-                # 在文本中插入图片占位符
+                # 将文本中的原生图片标记替换为系统占位符
                 if images:
-                    text = self._insert_image_placeholders(text, images)
+                    text = self._align_and_replace_images(text, images)
             except Exception as e:
                 logger.warning(f"图片提取失败（不影响文本解析）: {path} - {e}")
 
@@ -181,32 +181,79 @@ class PdfLoader(BaseLoader):
         pdf_doc.close()
         return images
 
-    def _insert_image_placeholders(
+    def _align_and_replace_images(
         self, text: str, images: List[ImageRef]
     ) -> str:
-        """在文本末尾附加图片占位符。
+        """将 MarkItDown 文本中的原生图片标记替换为系统占位符。
 
-        由于 MarkItDown 转换后的 Markdown 不包含图片位置信息，
-        将所有图片占位符附加在文本末尾，由后续 Splitter 根据
-        上下文将其分发到对应的 Chunk 中。
+        扫描 MarkItDown 产出的 Markdown 图片语法（如 ![alt](url)），
+        按顺序替换为 [IMAGE: {id}] 占位符，并精准更新每个 ImageRef 的
+        text_offset 和 text_length。
+
+        若 PyMuPDF 提取的图片数量多于文本中的图片标记（如背景图），
+        剩余图片附在文档末尾。
 
         参数:
-            text: 原始 Markdown 文本
-            images: 图片引用列表
+            text: MarkItDown 提取的 Markdown 文本
+            images: PyMuPDF 提取的 ImageRef 列表
 
         返回:
-            插入占位符后的文本
+            替换占位符后的文本
         """
         if not images:
             return text
 
-        # 在文本末尾附加图片引用区域
-        placeholders = []
-        for img in images:
-            placeholder = make_image_placeholder(img.id)
-            # 更新 text_offset（占位符在最终文本中的位置）
-            img.text_offset = len(text) + len("\n\n".join(placeholders)) + 2
-            img.text_length = len(placeholder)
-            placeholders.append(placeholder)
+        # 匹配 MarkItDown 产出的 Markdown 图片语法
+        md_image_pattern = re.compile(r"!\[.*?\]\(.*?\)")
 
-        return text + "\n\n" + "\n\n".join(placeholders)
+        # 找到文本中所有原生图片标记的位置
+        matches = list(md_image_pattern.finditer(text))
+
+        result_parts = []
+        last_end = 0
+        img_idx = 0
+
+        for match in matches:
+            # match 之前的普通文本
+            result_parts.append(text[last_end:match.start()])
+
+            if img_idx < len(images):
+                img = images[img_idx]
+                placeholder = make_image_placeholder(img.id)
+
+                # 记录占位符在新文本中的准确位置
+                img.text_offset = len("".join(result_parts))
+                img.text_length = len(placeholder)
+
+                result_parts.append(placeholder)
+                img_idx += 1
+            else:
+                # 图片标记比 PyMuPDF 提取的图片多，保留原标记
+                result_parts.append(match.group())
+
+            last_end = match.end()
+
+        # 拼接剩余文本
+        result_parts.append(text[last_end:])
+        result_text = "".join(result_parts)
+
+        # 兜底：PyMuPDF 提取的图片比文本标记多（如背景图），附在末尾
+        if img_idx < len(images):
+            # 确保现有文本末尾有干净的双换行
+            if not result_text.endswith("\n\n"):
+                result_text += "\n" if result_text.endswith("\n") else "\n\n"
+
+            # 依次追加剩余图片
+            for remaining_img in images[img_idx:]:
+                placeholder = make_image_placeholder(remaining_img.id)
+
+                remaining_img.text_offset = len(result_text)
+                remaining_img.text_length = len(placeholder)
+
+                # 占位符自带双换行，防止后续图片粘连
+                result_text += placeholder + "\n\n"
+
+            # 去除最后多余的空白
+            result_text = result_text.strip() + "\n"
+
+        return result_text

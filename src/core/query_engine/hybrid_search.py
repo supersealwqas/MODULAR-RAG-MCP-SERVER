@@ -44,14 +44,21 @@ class HybridSearch:
             query_processor: QueryProcessor 实例（可选，不传则延迟创建）
             dense_retriever: DenseRetriever 实例（可选，不传则延迟创建）
             sparse_retriever: SparseRetriever 实例（可选，不传则延迟创建）
-            fusion: Fusion 实例（可选，不传则使用默认配置）
+            fusion: Fusion 实例（可选，不传则使用配置创建）
         """
         self._settings = settings
         self._query_processor = query_processor
         self._dense_retriever = dense_retriever
         self._sparse_retriever = sparse_retriever
-        self._fusion = fusion or Fusion()
         self.top_k = settings.retrieval.top_k
+
+        # 如果未传入 fusion，则根据配置创建（带权重）
+        if fusion is not None:
+            self._fusion = fusion
+        else:
+            dense_weight = settings.retrieval.dense_weight
+            sparse_weight = settings.retrieval.sparse_weight
+            self._fusion = Fusion(weights=[dense_weight, sparse_weight])
 
     def _get_query_processor(self) -> QueryProcessor:
         """获取 QueryProcessor 实例（延迟创建）。"""
@@ -159,16 +166,22 @@ class HybridSearch:
 
         # 4. RRF 融合
         rankings = []
+        fusion_weights = []  # 实际参与融合的权重
+        dense_weight = self._settings.retrieval.dense_weight
+        sparse_weight = self._settings.retrieval.sparse_weight
+
         if dense_results:
             rankings.append(dense_results)
+            fusion_weights.append(dense_weight)
         if sparse_results:
             rankings.append(sparse_results)
+            fusion_weights.append(sparse_weight)
 
         if not rankings:
             logger.warning("Dense 和 Sparse 均无结果")
             return []
 
-        fused_results = self._fusion.fuse(rankings, top_k=k, trace=trace)
+        fused_results = self._fusion.fuse(rankings, top_k=k, weights=fusion_weights, trace=trace)
 
         # 5. Metadata 后置过滤
         if filters:

@@ -358,3 +358,129 @@ class TestFuseSerialization:
             restored = RetrievalResult.from_dict(d)
             assert restored.chunk_id == r.chunk_id
             assert restored.score == pytest.approx(r.score)
+
+
+# ============================================================
+# 权重测试
+# ============================================================
+
+
+class TestFuseWeights:
+    """加权 RRF 融合测试。"""
+
+    def test_init_weights(self):
+        """初始化时应能传入权重列表。"""
+        fusion = Fusion(k=60, weights=[0.7, 0.3])
+        assert fusion.weights == [0.7, 0.3]
+
+    def test_init_no_weights(self):
+        """不传权重时 weights 应为 None。"""
+        fusion = Fusion(k=60)
+        assert fusion.weights is None
+
+    def test_weights_affect_scores(self):
+        """权重应影响 RRF 分数。"""
+        fusion_equal = Fusion(k=60)  # 等权
+        fusion_weighted = Fusion(k=60, weights=[0.8, 0.2])
+
+        r1 = _make_results(["a", "b"])
+        r2 = _make_results(["b", "a"])
+
+        results_equal = fusion_equal.fuse([r1, r2])
+        results_weighted = fusion_weighted.fuse([r1, r2])
+
+        # a: 等权时 1/60 + 1/61, 加权时 0.8/60 + 0.2/61
+        # 加权后 a 的分数应更低（因为第二个列表权重降低，而 a 在第二列表排名靠后）
+        score_equal = next(r.score for r in results_equal if r.chunk_id == "a")
+        score_weighted = next(r.score for r in results_weighted if r.chunk_id == "a")
+        assert score_weighted != score_equal
+
+    def test_weights_order_matters(self):
+        """权重顺序应与排名列表顺序对应。"""
+        # 第一个列表权重高
+        fusion_1 = Fusion(k=60, weights=[0.9, 0.1])
+        # 第二个列表权重高
+        fusion_2 = Fusion(k=60, weights=[0.1, 0.9])
+
+        r1 = _make_results(["a", "b"])  # a 排第一
+        r2 = _make_results(["b", "a"])  # b 排第一
+
+        results_1 = fusion_1.fuse([r1, r2])
+        results_2 = fusion_2.fuse([r1, r2])
+
+        # fusion_1: 第一个列表权重高，a 在第一个列表排第一，所以 a 应该排前面
+        assert results_1[0].chunk_id == "a"
+        # fusion_2: 第二个列表权重高，b 在第二个列表排第一，所以 b 应该排前面
+        assert results_2[0].chunk_id == "b"
+
+    def test_dynamic_weights_override(self):
+        """调用 fuse 时传入的权重应覆盖初始化权重。"""
+        fusion = Fusion(k=60, weights=[0.9, 0.1])
+
+        r1 = _make_results(["a", "b"])
+        r2 = _make_results(["b", "a"])
+
+        # 初始化权重: 第一个列表 0.9
+        results_init = fusion.fuse([r1, r2])
+
+        # 动态权重: 反转权重
+        results_dynamic = fusion.fuse([r1, r2], weights=[0.1, 0.9])
+
+        # 结果顺序应该不同
+        assert results_init[0].chunk_id != results_dynamic[0].chunk_id
+
+    def test_single_ranking_with_weight(self):
+        """单个排名列表时权重应生效。"""
+        fusion = Fusion(k=60, weights=[0.5])
+        r1 = _make_results(["a", "b"])
+
+        results = fusion.fuse([r1])
+
+        # 单列表时，权重 0.5 应乘以 RRF 分数
+        assert results[0].score == pytest.approx(0.5 * 1.0 / 60)
+        assert results[1].score == pytest.approx(0.5 * 1.0 / 61)
+
+    def test_mixed_empty_with_weights(self):
+        """混合空列表时权重应正确映射。"""
+        fusion = Fusion(k=60, weights=[0.7, 0.3])
+
+        r1 = _make_results(["a", "b"])
+        r2 = []  # 空列表
+
+        results = fusion.fuse([r1, r2])
+
+        # r2 为空，只有 r1 参与融合，权重应为 0.7
+        assert len(results) == 2
+        assert results[0].score == pytest.approx(0.7 * 1.0 / 60)
+
+    def test_three_rankings_with_weights(self):
+        """三个排名列表的加权融合。"""
+        fusion = Fusion(k=60, weights=[0.5, 0.3, 0.2])
+
+        r1 = _make_results(["a", "b", "c"])
+        r2 = _make_results(["b", "c", "a"])
+        r3 = _make_results(["c", "a", "b"])
+
+        results = fusion.fuse([r1, r2, r3])
+
+        # 计算预期分数
+        # a: 0.5/60 + 0.3/62 + 0.2/62
+        # b: 0.5/61 + 0.3/60 + 0.2/62
+        # c: 0.5/62 + 0.3/61 + 0.2/60
+        assert len(results) == 3
+        # 分数应各不相同（因为权重不对称）
+        scores = [r.score for r in results]
+        assert len(set(scores)) == 3
+
+    def test_weights_with_trace(self):
+        """权重信息应记录在 Trace 中。"""
+        fusion = Fusion(k=60, weights=[0.7, 0.3])
+        r1 = _make_results(["a", "b"])
+        r2 = _make_results(["b", "a"])
+        trace = TraceContext()
+
+        fusion.fuse([r1, r2], trace=trace)
+
+        stages = [s for s in trace.stages if s["name"] == "fusion"]
+        assert len(stages) == 1
+        assert stages[0]["weights"] == [0.7, 0.3]

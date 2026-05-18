@@ -151,9 +151,13 @@ class RetrievalConfig:
     属性:
         top_k: 返回的最大结果数
         hybrid: 是否启用混合检索（Dense + Sparse）
+        dense_weight: Dense 检索权重（语义相似度），默认 0.7
+        sparse_weight: Sparse 检索权重（BM25 关键词匹配），默认 0.3
     """
     top_k: int = 10
     hybrid: bool = True
+    dense_weight: float = 0.7
+    sparse_weight: float = 0.3
 
 
 @dataclass
@@ -336,6 +340,8 @@ def _parse_settings(raw: dict) -> Settings:
         retrieval=RetrievalConfig(
             top_k=retrieval_raw.get("top_k", 10),
             hybrid=retrieval_raw.get("hybrid", True),
+            dense_weight=retrieval_raw.get("dense_weight", 0.7),
+            sparse_weight=retrieval_raw.get("sparse_weight", 0.3),
         ),
         rerank=RerankConfig(
             enabled=rerank_raw.get("enabled", False),

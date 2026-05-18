@@ -170,6 +170,7 @@ def main():
     print(f"Embedding: {settings.embedding.provider} / {settings.embedding.model}")
     print(f"VectorStore: {settings.vector_store.provider}")
     print(f"默认 top_k: {settings.retrieval.top_k}")
+    print(f"权重配置: Dense={settings.retrieval.dense_weight}, Sparse={settings.retrieval.sparse_weight}")
 
     # 创建 HybridSearch（使用真实组件）
     hs = HybridSearch(settings)

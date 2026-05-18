@@ -30,7 +30,7 @@ def test_basic_query():
     print("测试1: 基本查询")
     print("=" * 60)
 
-    exit_code = main(["--query", "什么是语言模型？", "--top-k", "3"])
+    exit_code = main(["--query", "Rouge-N是什么", "--top-k", "3"])
     assert exit_code == 0, f"查询失败，退出码: {exit_code}"
 
     print("\n✅ 基本查询测试通过")
@@ -42,7 +42,7 @@ def test_verbose_mode():
     print("测试2: Verbose 模式")
     print("=" * 60)
 
-    exit_code = main(["--query", "什么是 RAG？", "--top-k", "3", "--verbose"])
+    exit_code = main(["--query", "Rouge-N是什么", "--top-k", "3", "--verbose"])
     assert exit_code == 0, f"Verbose 查询失败，退出码: {exit_code}"
 
     print("\n✅ Verbose 模式测试通过")
@@ -54,7 +54,7 @@ def test_no_rerank():
     print("测试3: --no-rerank 模式")
     print("=" * 60)
 
-    exit_code = main(["--query", "如何配置 Ollama？", "--top-k", "3", "--no-rerank"])
+    exit_code = main(["--query", "Rouge-N是什么", "--top-k", "3", "--no-rerank"])
     assert exit_code == 0, f"no-rerank 查询失败，退出码: {exit_code}"
 
     print("\n✅ --no-rerank 模式测试通过")
