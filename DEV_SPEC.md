@@ -2012,10 +2012,10 @@ dashboard:
 |---------|---------|------|---------|------|
 | E1 | MCP Server 入口与 Stdio 约束 | [x] | 2026-05-18 | FastMCP + Stdio Transport，4项集成测试 |
 | E2 | Protocol Handler 协议解析与能力协商 | [x] | 2026-05-18 | async ProtocolHandler + JSON-RPC 错误码 + Pydantic序列化防御 + isError，24项单元测试 |
-| E3 | query_knowledge_hub Tool | [ ] | | |
-| E4 | list_collections Tool | [ ] | | |
-| E5 | get_document_summary Tool | [ ] | | |
-| E6 | 多模态返回组装（Text + Image） | [ ] | | |
+| E3 | query_knowledge_hub Tool | [x] | 2026-05-18 | CitationGenerator + ResponseBuilder + HybridSearch/Reranker集成，23项单元测试 |
+| E4 | list_collections Tool | [x] | 2026-05-18 | ChromaDB集合列表+文档统计，7项单元测试 |
+| E5 | get_document_summary Tool | [x] | 2026-05-18 | ChromaDB文档摘要查询+结构化响应，10项单元测试 |
+| E6 | 多模态返回组装（Text + Image） | [x] | 2026-05-18 | MultimodalAssembler + ResponseBuilder集成，18项单元测试 |
 
 #### 阶段 F：Trace 基础设施与打点
 
@@ -2068,12 +2068,12 @@ dashboard:
 | 阶段 B | 16 | 15 | 94% |
 | 阶段 C | 15 | 15 | 100% |
 | 阶段 D | 7 | 2 | 29% |
-| 阶段 E | 6 | 2 | 33% |
+| 阶段 E | 6 | 6 | 100% |
 | 阶段 F | 5 | 0 | 0% |
 | 阶段 G | 6 | 0 | 0% |
 | 阶段 H | 5 | 0 | 0% |
 | 阶段 I | 5 | 0 | 0% |
-| **总计** | **68** | **38** | **56%** |
+| **总计** | **68** | **42** | **62%** |
 
 
 ---

@@ -6,10 +6,15 @@ MCP Server 入口模块
 """
 
 import io
+import json
 import logging
 import sys
 
 from mcp.server.fastmcp import FastMCP
+
+from src.mcp_server.tools.query_knowledge_hub import query_knowledge_hub as _query_knowledge_hub
+from src.mcp_server.tools.list_collections import list_collections as _list_collections
+from src.mcp_server.tools.get_document_summary import get_document_summary as _get_document_summary
 
 # 配置日志输出到 stderr（UTF-8 编码），避免污染 stdout 的 MCP 消息通道
 _stderr_handler = logging.StreamHandler(
@@ -28,27 +33,62 @@ server = FastMCP(
 
 
 @server.tool()
-async def query_knowledge_hub(query: str, top_k: int = 10) -> str:
-    """查询知识库，返回最相关的文档片段。"""
-    logger.info("query_knowledge_hub 被调用: query=%s, top_k=%d", query, top_k)
-    # TODO: E3 阶段将接入 HybridSearch + Reranker
-    return f"查询结果占位符: query='{query}', top_k={top_k}"
+async def query_knowledge_hub(query: str, top_k: int = 10, collection: str = "") -> str:
+    """查询知识库，返回最相关的文档片段。
+
+    参数:
+        query: 查询文本
+        top_k: 返回结果数量（默认 10）
+        collection: 限定检索集合（可选）
+    """
+    logger.info("query_knowledge_hub 被调用: query=%s, top_k=%d, collection=%s", query, top_k, collection)
+
+    # 调用实际实现
+    result = await _query_knowledge_hub(
+        query=query,
+        top_k=top_k,
+        collection=collection if collection else None,
+    )
+
+    # 返回 Markdown 文本（content[0].text）
+    if result.get("content") and len(result["content"]) > 0:
+        return result["content"][0]["text"]
+
+    return "查询未返回结果"
 
 
 @server.tool()
 async def list_collections() -> str:
     """列出所有可用的知识库集合。"""
     logger.info("list_collections 被调用")
-    # TODO: E4 阶段将实现集合列表
-    return "集合列表占位符"
+
+    # 调用实际实现
+    result = await _list_collections()
+
+    # 返回 Markdown 文本（content[0].text）
+    if result.get("content") and len(result["content"]) > 0:
+        return result["content"][0]["text"]
+
+    return "获取集合列表失败"
 
 
 @server.tool()
 async def get_document_summary(doc_id: str) -> str:
-    """获取指定文档的摘要信息。"""
+    """获取指定文档的摘要信息。
+
+    参数:
+        doc_id: 文档 ID
+    """
     logger.info("get_document_summary 被调用: doc_id=%s", doc_id)
-    # TODO: E5 阶段将实现文档摘要
-    return f"文档摘要占位符: doc_id='{doc_id}'"
+
+    # 调用实际实现
+    result = await _get_document_summary(doc_id=doc_id)
+
+    # 返回 Markdown 文本（content[0].text）
+    if result.get("content") and len(result["content"]) > 0:
+        return result["content"][0]["text"]
+
+    return "获取文档摘要失败"
 
 
 def run() -> None:
