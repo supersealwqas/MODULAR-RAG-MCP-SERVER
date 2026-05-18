@@ -2010,8 +2010,8 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| E1 | MCP Server 入口与 Stdio 约束 | [ ] | | |
-| E2 | Protocol Handler 协议解析与能力协商 | [ ] | | |
+| E1 | MCP Server 入口与 Stdio 约束 | [x] | 2026-05-18 | FastMCP + Stdio Transport，4项集成测试 |
+| E2 | Protocol Handler 协议解析与能力协商 | [x] | 2026-05-18 | async ProtocolHandler + JSON-RPC 错误码 + Pydantic序列化防御 + isError，24项单元测试 |
 | E3 | query_knowledge_hub Tool | [ ] | | |
 | E4 | list_collections Tool | [ ] | | |
 | E5 | get_document_summary Tool | [ ] | | |
@@ -2068,12 +2068,12 @@ dashboard:
 | 阶段 B | 16 | 15 | 94% |
 | 阶段 C | 15 | 15 | 100% |
 | 阶段 D | 7 | 2 | 29% |
-| 阶段 E | 6 | 0 | 0% |
+| 阶段 E | 6 | 2 | 33% |
 | 阶段 F | 5 | 0 | 0% |
 | 阶段 G | 6 | 0 | 0% |
 | 阶段 H | 5 | 0 | 0% |
 | 阶段 I | 5 | 0 | 0% |
-| **总计** | **68** | **36** | **53%** |
+| **总计** | **68** | **38** | **56%** |
 
 
 ---
