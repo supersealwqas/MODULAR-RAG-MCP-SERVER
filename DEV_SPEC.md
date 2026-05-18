@@ -2025,7 +2025,7 @@ dashboard:
 | F2 | 结构化日志 logger（JSON Lines） | [x] | 2026-05-19 | JSONFormatter+get_trace_logger+write_trace，13项测试 |
 | F3 | 在 Query 链路打点 | [x] | 2026-05-19 | HybridSearch/Fusion/Reranker trace增强，5项验收测试 |
 | F4 | 在 Ingestion 链路打点 | [x] | 2026-05-19 | Pipeline trace增强（load/split/transform/embed/upsert五阶段+elapsed_ms+method），32项测试 |
-| F5 | Pipeline 进度回调 (on_progress) | [ ] | | |
+| F5 | Pipeline 进度回调 (on_progress) | [x] | 2026-05-19 | on_progress回调+5项单元测试 |
 
 #### 阶段 G：可视化管理平台 Dashboard
 
@@ -2069,11 +2069,11 @@ dashboard:
 | 阶段 C | 15 | 15 | 100% |
 | 阶段 D | 7 | 7 | 100% |
 | 阶段 E | 6 | 6 | 100% |
-| 阶段 F | 5 | 4 | 80% |
+| 阶段 F | 5 | 5 | 100% |
 | 阶段 G | 6 | 0 | 0% |
 | 阶段 H | 5 | 0 | 0% |
 | 阶段 I | 5 | 0 | 0% |
-| **总计** | **68** | **50** | **74%** |
+| **总计** | **68** | **51** | **75%** |
 
 
 ---
