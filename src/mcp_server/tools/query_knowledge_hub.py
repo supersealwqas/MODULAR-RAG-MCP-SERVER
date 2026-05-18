@@ -101,7 +101,7 @@ async def query_knowledge_hub(
         logger.warning("Reranker 失败，使用原始排序: %s", e)
 
     # 构建响应
-    response = ResponseBuilder.build(results, query)
+    response = ResponseBuilder.build(results, query, include_images=True)
     logger.info("查询 '%s' 返回 %d 条结果", query, len(results))
 
     return response

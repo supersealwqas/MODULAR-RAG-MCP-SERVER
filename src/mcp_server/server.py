@@ -33,7 +33,7 @@ server = FastMCP(
 
 
 @server.tool()
-async def query_knowledge_hub(query: str, top_k: int = 10, collection: str = "") -> str:
+async def query_knowledge_hub(query: str, top_k: int = 10, collection: str = ""):
     """查询知识库，返回最相关的文档片段。
 
     参数:
@@ -50,30 +50,24 @@ async def query_knowledge_hub(query: str, top_k: int = 10, collection: str = "")
         collection=collection if collection else None,
     )
 
-    # 返回 Markdown 文本（content[0].text）
-    if result.get("content") and len(result["content"]) > 0:
-        return result["content"][0]["text"]
-
-    return "查询未返回结果"
+    # 返回内容列表（支持多模态）
+    return result.get("content", [])
 
 
 @server.tool()
-async def list_collections() -> str:
+async def list_collections():
     """列出所有可用的知识库集合。"""
     logger.info("list_collections 被调用")
 
     # 调用实际实现
     result = await _list_collections()
 
-    # 返回 Markdown 文本（content[0].text）
-    if result.get("content") and len(result["content"]) > 0:
-        return result["content"][0]["text"]
-
-    return "获取集合列表失败"
+    # 返回内容列表
+    return result.get("content", [])
 
 
 @server.tool()
-async def get_document_summary(doc_id: str) -> str:
+async def get_document_summary(doc_id: str):
     """获取指定文档的摘要信息。
 
     参数:
@@ -84,11 +78,8 @@ async def get_document_summary(doc_id: str) -> str:
     # 调用实际实现
     result = await _get_document_summary(doc_id=doc_id)
 
-    # 返回 Markdown 文本（content[0].text）
-    if result.get("content") and len(result["content"]) > 0:
-        return result["content"][0]["text"]
-
-    return "获取文档摘要失败"
+    # 返回内容列表
+    return result.get("content", [])
 
 
 def run() -> None:
