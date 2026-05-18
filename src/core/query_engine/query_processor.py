@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from src.core.settings import Settings
@@ -145,6 +146,7 @@ class QueryProcessor:
         if not query or not query.strip():
             return []
 
+        start_time = time.time()
         tokens = self._tokenize(query)
 
         # 去重，保持顺序
@@ -156,11 +158,13 @@ class QueryProcessor:
                 keywords.append(token)
 
         if trace:
+            elapsed = (time.time() - start_time) * 1000
             trace.record_stage(
                 "query_processing",
                 method="jieba" if self._jieba else "regex",
                 original_query=query,
                 keyword_count=len(keywords),
+                elapsed_ms=round(elapsed, 2),
             )
 
         return keywords
