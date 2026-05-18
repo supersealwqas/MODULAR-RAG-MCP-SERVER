@@ -200,6 +200,7 @@ def _make_settings() -> Settings:
         rerank=RerankConfig(),
         evaluation=EvaluationConfig(),
         observability=ObservabilityConfig(),
+        pipeline=MagicMock(),
     )
 
 
@@ -484,22 +485,24 @@ class TestPipelineProgress:
 
 
 class TestPipelineTrace:
-    """Trace 记录测试。"""
+    """Trace 记录测试（F4 验收标准）。"""
 
-    def test_trace_records_stages(self):
-        """trace 应记录各阶段数据。"""
+    # -- 验收标准 1: trace 包含 load/split/transform/embed/upsert 阶段 --
+
+    def test_trace_records_all_stages(self):
+        """trace 应记录所有 5 个核心阶段（load/split/transform/embed/upsert）。"""
         pipeline, _ = _make_pipeline()
 
         trace = TraceContext(trace_type="ingestion")
         pipeline.run("fake.pdf", trace=trace)
 
         stage_names = [s["name"] for s in trace.stages]
-        assert "integrity" in stage_names
+        # 核心 5 阶段
         assert "load" in stage_names
         assert "split" in stage_names
         assert "transform" in stage_names
-        assert "encode" in stage_names
-        assert "store" in stage_names
+        assert "embed" in stage_names
+        assert "upsert" in stage_names
 
     def test_trace_integrity_stage_data(self):
         """integrity 阶段应记录 file_hash 和 action。"""
@@ -512,26 +515,101 @@ class TestPipelineTrace:
         assert integrity_stage["action"] == "process"
         assert "file_hash" in integrity_stage
 
-    def test_trace_encode_stage_data(self):
-        """encode 阶段应记录 record_count。"""
+    # -- 验收标准 2: 每阶段记录 elapsed_ms、method 和处理详情 --
+
+    def test_trace_stages_have_elapsed_ms(self):
+        """pipeline 自身记录的核心阶段都应包含 elapsed_ms 字段。"""
         pipeline, _ = _make_pipeline()
 
         trace = TraceContext(trace_type="ingestion")
         pipeline.run("fake.pdf", trace=trace)
 
-        encode_stage = next(s for s in trace.stages if s["name"] == "encode")
-        assert encode_stage["record_count"] > 0
+        # 只检查 pipeline 自身记录的阶段（不含子组件内部阶段）
+        pipeline_stages = ["integrity", "load", "split", "transform", "embed", "upsert"]
+        for stage in trace.stages:
+            if stage["name"] in pipeline_stages:
+                assert "elapsed_ms" in stage, f"阶段 {stage['name']} 缺少 elapsed_ms"
+                assert isinstance(stage["elapsed_ms"], (int, float))
+                assert stage["elapsed_ms"] >= 0
 
-    def test_trace_store_stage_data(self):
-        """store 阶段应记录 vector_count 和 vocabulary_size。"""
+    def test_trace_stages_have_method(self):
+        """核心阶段应包含 method 字段。"""
         pipeline, _ = _make_pipeline()
 
         trace = TraceContext(trace_type="ingestion")
         pipeline.run("fake.pdf", trace=trace)
 
-        store_stage = next(s for s in trace.stages if s["name"] == "store")
-        assert store_stage["vector_count"] > 0
-        assert "vocabulary_size" in store_stage
+        method_stages = ["load", "split", "transform", "embed", "upsert"]
+        for stage in trace.stages:
+            if stage["name"] in method_stages:
+                assert "method" in stage, f"阶段 {stage['name']} 缺少 method"
+
+    def test_trace_load_stage_details(self):
+        """load 阶段应记录 text_length 和 image_count。"""
+        pipeline, _ = _make_pipeline()
+
+        trace = TraceContext(trace_type="ingestion")
+        pipeline.run("fake.pdf", trace=trace)
+
+        load_stage = next(s for s in trace.stages if s["name"] == "load")
+        assert load_stage["text_length"] > 0
+        assert "image_count" in load_stage
+
+    def test_trace_split_stage_details(self):
+        """split 阶段应记录 chunk_count。"""
+        pipeline, _ = _make_pipeline()
+
+        trace = TraceContext(trace_type="ingestion")
+        pipeline.run("fake.pdf", trace=trace)
+
+        split_stage = next(s for s in trace.stages if s["name"] == "split")
+        assert split_stage["chunk_count"] > 0
+
+    def test_trace_transform_stage_details(self):
+        """transform 阶段应记录 chunk_count。"""
+        pipeline, _ = _make_pipeline()
+
+        trace = TraceContext(trace_type="ingestion")
+        pipeline.run("fake.pdf", trace=trace)
+
+        transform_stage = next(s for s in trace.stages if s["name"] == "transform")
+        assert transform_stage["chunk_count"] > 0
+
+    def test_trace_embed_stage_details(self):
+        """embed 阶段应记录 record_count。"""
+        pipeline, _ = _make_pipeline()
+
+        trace = TraceContext(trace_type="ingestion")
+        pipeline.run("fake.pdf", trace=trace)
+
+        embed_stage = next(s for s in trace.stages if s["name"] == "embed")
+        assert embed_stage["record_count"] > 0
+
+    def test_trace_upsert_stage_details(self):
+        """upsert 阶段应记录 vector_count 和 vocabulary_size。"""
+        pipeline, _ = _make_pipeline()
+
+        trace = TraceContext(trace_type="ingestion")
+        pipeline.run("fake.pdf", trace=trace)
+
+        upsert_stage = next(s for s in trace.stages if s["name"] == "upsert")
+        assert upsert_stage["vector_count"] > 0
+        assert "vocabulary_size" in upsert_stage
+
+    # -- 验收标准 3: trace_type == "ingestion" --
+
+    def test_trace_type_is_ingestion(self):
+        """trace.to_dict() 中 trace_type 应为 ingestion。"""
+        pipeline, _ = _make_pipeline()
+
+        trace = TraceContext(trace_type="ingestion")
+        pipeline.run("fake.pdf", trace=trace)
+        trace.finish()
+
+        trace_dict = trace.to_dict()
+        assert trace_dict["trace_type"] == "ingestion"
+        assert trace_dict["stages"]  # 非空
+        assert trace_dict["total_elapsed_ms"] >= 0
 
 
 class TestPipelineIntegrityIntegration:

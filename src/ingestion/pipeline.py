@@ -330,11 +330,23 @@ class IngestionPipeline:
             if not force and integrity.should_skip(file_hash):
                 logger.info("文件已处理，跳过: %s (hash=%s)", file_path, file_hash[:16])
                 if trace:
-                    trace.record_stage("integrity", action="skip", file_hash=file_hash)
+                    elapsed = (time.time() - stage_start) * 1000
+                    trace.record_stage(
+                        "integrity",
+                        action="skip",
+                        file_hash=file_hash,
+                        elapsed_ms=round(elapsed, 2),
+                    )
                 return None
 
             if trace:
-                trace.record_stage("integrity", action="process", file_hash=file_hash)
+                elapsed = (time.time() - stage_start) * 1000
+                trace.record_stage(
+                    "integrity",
+                    action="process",
+                    file_hash=file_hash,
+                    elapsed_ms=round(elapsed, 2),
+                )
             return file_hash
 
         except Exception as e:
@@ -356,11 +368,13 @@ class IngestionPipeline:
             document = loader.load(file_path, collection=collection)
             logger.info("加载完成: %s, %d 字符", file_path, len(document.text))
             if trace:
+                elapsed = (time.time() - stage_start) * 1000
                 trace.record_stage(
                     "load",
                     method=type(loader).__name__,
                     text_length=len(document.text),
                     image_count=len(document.get_images()),
+                    elapsed_ms=round(elapsed, 2),
                 )
             return document
         except Exception as e:
@@ -381,10 +395,12 @@ class IngestionPipeline:
             chunks = chunker.split_document(document)
             logger.info("切分完成: %d chunks", len(chunks))
             if trace:
+                elapsed = (time.time() - stage_start) * 1000
                 trace.record_stage(
                     "split",
                     method=type(chunker).__name__,
                     chunk_count=len(chunks),
+                    elapsed_ms=round(elapsed, 2),
                 )
             return chunks
         except Exception as e:
@@ -417,7 +433,18 @@ class IngestionPipeline:
             logger.info("元数据增强完成: %d chunks", len(chunks))
 
             if trace:
-                trace.record_stage("transform", chunk_count=len(chunks))
+                elapsed = (time.time() - stage_start) * 1000
+                method = "+".join([
+                    type(refiner).__name__,
+                    type(captioner).__name__,
+                    type(enricher).__name__,
+                ])
+                trace.record_stage(
+                    "transform",
+                    method=method,
+                    chunk_count=len(chunks),
+                    elapsed_ms=round(elapsed, 2),
+                )
             return chunks
         except Exception as e:
             raise PipelineError("transform", e) from e
@@ -437,10 +464,12 @@ class IngestionPipeline:
             records = processor.process(chunks, trace=trace)
             logger.info("编码完成: %d records", len(records))
             if trace:
+                elapsed = (time.time() - stage_start) * 1000
                 trace.record_stage(
-                    "encode",
+                    "embed",
                     method=type(processor).__name__,
                     record_count=len(records),
+                    elapsed_ms=round(elapsed, 2),
                 )
             return records
         except Exception as e:
@@ -469,10 +498,17 @@ class IngestionPipeline:
             logger.info("BM25 索引构建完成")
 
             if trace:
+                elapsed = (time.time() - stage_start) * 1000
+                method = "+".join([
+                    type(upserter).__name__,
+                    type(indexer).__name__,
+                ])
                 trace.record_stage(
-                    "store",
+                    "upsert",
+                    method=method,
                     vector_count=stored,
                     vocabulary_size=indexer.get_vocabulary_size(),
+                    elapsed_ms=round(elapsed, 2),
                 )
             return stored
         except Exception as e:
