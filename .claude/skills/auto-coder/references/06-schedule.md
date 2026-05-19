@@ -125,7 +125,7 @@
 |---------|---------|------|---------|------|
 | G1 | Dashboard 基础架构与系统总览页 | [x] | 2026-05-19 | Streamlit多页面架构+系统总览页+ConfigService+ChromaStore.list_collections，14项测试 |
 | G2 | DocumentManager 实现 | [x] | 2026-05-19 | DocumentManager(list/delete/stats)+ChromaStore.get_by_metadata+pipeline file_hash注入，23项测试 |
-| G3 | 数据浏览器页面 | [ ] | | |
+| G3 | 数据浏览器页面 | [x] | 2026-05-19 | DataService+data_browser页面+集合筛选+Chunk详情+图片预览，12项测试 |
 | G4 | Ingestion 管理页面 | [ ] | | |
 | G5 | Ingestion 追踪页面 | [ ] | | |
 | G6 | Query 追踪页面 | [ ] | | |
