@@ -94,8 +94,9 @@ def page_ingestion_traces():
 
 
 def page_query_traces():
-    """Query 追踪页面（G6 占位）。"""
-    _placeholder_page("🔍 Query 追踪", "G6")
+    """Query 追踪页面。"""
+    from src.observability.dashboard.pages.query_traces import render_query_traces
+    render_query_traces(_get_trace_service())
 
 
 def page_evaluation():
