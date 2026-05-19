@@ -20,6 +20,7 @@ import streamlit as st
 
 from src.observability.dashboard.services.config_service import ConfigService
 from src.observability.dashboard.services.data_service import DataService
+from src.observability.dashboard.services.trace_service import TraceService
 
 
 def _get_config_service() -> ConfigService:
@@ -42,6 +43,17 @@ def _get_data_service() -> DataService:
     if "data_service" not in st.session_state:
         st.session_state.data_service = DataService()
     return st.session_state.data_service
+
+
+def _get_trace_service() -> TraceService:
+    """获取或创建 TraceService 单例（缓存在 session_state）。
+
+    返回:
+        TraceService 实例
+    """
+    if "trace_service" not in st.session_state:
+        st.session_state.trace_service = TraceService()
+    return st.session_state.trace_service
 
 
 def _placeholder_page(title: str, planned_task: str) -> None:
@@ -76,8 +88,9 @@ def page_ingestion_manager():
 
 
 def page_ingestion_traces():
-    """Ingestion 追踪页面（G5 占位）。"""
-    _placeholder_page("📊 Ingestion 追踪", "G5")
+    """Ingestion 追踪页面。"""
+    from src.observability.dashboard.pages.ingestion_traces import render_ingestion_traces
+    render_ingestion_traces(_get_trace_service())
 
 
 def page_query_traces():
