@@ -17,6 +17,14 @@ _EVALUATOR_REGISTRY: Dict[str, Type[BaseEvaluator]] = {
     "custom": CustomEvaluator,  # 内置默认实现
 }
 
+# 导入 RagasEvaluator 以触发 @register_evaluator("ragas") 注册
+# 放在文件末尾会导致循环导入，因此放在注册表之后
+try:
+    from src.observability.evaluation import ragas_evaluator  # noqa: F401
+except ImportError:
+    # ragas 依赖未安装时忽略，不影响 custom 提供者
+    pass
+
 
 def register_evaluator(provider: str):
     """注册 Evaluator 提供者的装饰器。
