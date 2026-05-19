@@ -25,6 +25,7 @@ from src.ingestion.transform.base_transform import BaseTransform
 from src.ingestion.transform.chunk_refiner import ChunkRefiner
 from src.ingestion.transform.image_captioner import ImageCaptioner
 from src.ingestion.storage.image_storage import ImageStorage
+from src.core.trace.trace_collector import TraceCollector
 from src.ingestion.transform.metadata_enricher import MetadataEnricher
 from src.libs.loader.base_loader import BaseLoader
 from src.libs.loader.file_integrity import FileIntegrityChecker, SQLiteIntegrityChecker
@@ -246,6 +247,11 @@ class IngestionPipeline:
         start_time = time.time()
         stage_times: Dict[str, float] = {}
 
+        # 自动创建 TraceContext（外部未传入时）
+        own_trace = trace is None
+        if own_trace:
+            trace = TraceContext(trace_type="ingestion")
+
         # 阶段 1: 完整性检查
         self._report_progress(on_progress, "integrity", 1, _TOTAL_STAGES)
         file_hash = self._stage_integrity(file_path, force, trace, stage_times)
@@ -306,6 +312,10 @@ class IngestionPipeline:
                 file_path, len(chunks), stored_count, elapsed,
             )
 
+            # 持久化 trace 到 logs/traces.jsonl
+            if trace is not None:
+                TraceCollector().collect(trace)
+
             return PipelineResult(
                 file_path=file_path,
                 collection=collection,
@@ -319,8 +329,14 @@ class IngestionPipeline:
             )
 
         except PipelineError:
+            # 失败时也持久化 trace
+            if trace is not None:
+                TraceCollector().collect(trace)
             raise
         except Exception as e:
+            # 失败时也持久化 trace
+            if trace is not None:
+                TraceCollector().collect(trace)
             # 标记失败并包装为 PipelineError
             integrity = self._get_integrity_checker()
             integrity.mark_failed(file_hash, file_path, str(e))
