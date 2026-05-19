@@ -135,6 +135,43 @@ class ImageStorage:
         logger.debug("图片已保存: %s -> %s", image_id, file_path)
         return file_path
 
+    def register_image(
+        self,
+        image_id: str,
+        file_path: str,
+        collection: str = "default",
+        doc_hash: str = "",
+        page_num: int = 0,
+    ) -> None:
+        """注册已有图片文件到 SQLite 索引（不复制文件）。
+
+        用于 Pipeline 中图片已由 PdfLoader 保存到磁盘，
+        只需将路径记录到索引的场景。
+
+        参数:
+            image_id: 图片唯一标识符
+            file_path: 图片文件的绝对路径
+            collection: 集合名称
+            doc_hash: 来源文档哈希
+            page_num: 图片所在页码
+        """
+        now = datetime.now().isoformat()
+        with self._get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO image_index (image_id, file_path, collection, doc_hash, page_num, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(image_id) DO UPDATE SET
+                    file_path = excluded.file_path,
+                    collection = excluded.collection,
+                    doc_hash = excluded.doc_hash,
+                    page_num = excluded.page_num,
+                    created_at = excluded.created_at
+                """,
+                (image_id, file_path, collection, doc_hash, page_num, now),
+            )
+        logger.debug("图片已注册: %s -> %s", image_id, file_path)
+
     def get_image_path(self, image_id: str) -> Optional[str]:
         """根据 image_id 查找图片文件路径。
 

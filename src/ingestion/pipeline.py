@@ -24,6 +24,7 @@ from src.ingestion.storage.vector_upserter import VectorUpserter
 from src.ingestion.transform.base_transform import BaseTransform
 from src.ingestion.transform.chunk_refiner import ChunkRefiner
 from src.ingestion.transform.image_captioner import ImageCaptioner
+from src.ingestion.storage.image_storage import ImageStorage
 from src.ingestion.transform.metadata_enricher import MetadataEnricher
 from src.libs.loader.base_loader import BaseLoader
 from src.libs.loader.file_integrity import FileIntegrityChecker, SQLiteIntegrityChecker
@@ -115,6 +116,7 @@ class IngestionPipeline:
         batch_processor: Optional[BatchProcessor] = None,
         vector_upserter: Optional[VectorUpserter] = None,
         bm25_indexer: Optional[BM25Indexer] = None,
+        image_storage: Optional[ImageStorage] = None,
         compute_hash: Optional[Callable[[str], str]] = None,
     ) -> None:
         """初始化 Pipeline。
@@ -130,6 +132,7 @@ class IngestionPipeline:
             batch_processor: 批量编码器（可选，默认 BatchProcessor）
             vector_upserter: 向量写入器（可选，默认 VectorUpserter）
             bm25_indexer: BM25 索引器（可选，默认 BM25Indexer）
+            image_storage: 图片存储（可选，默认 ImageStorage）
             compute_hash: 文件哈希计算函数（可选，默认 FileIntegrityChecker.compute_sha256）
         """
         self._settings = settings
@@ -142,6 +145,7 @@ class IngestionPipeline:
         self._batch_processor = batch_processor
         self._vector_upserter = vector_upserter
         self._bm25_indexer = bm25_indexer
+        self._image_storage = image_storage
         self._compute_hash = compute_hash or FileIntegrityChecker.compute_sha256
 
     # ----------------------------------------------------------
@@ -204,6 +208,12 @@ class IngestionPipeline:
         if self._bm25_indexer is None:
             self._bm25_indexer = BM25Indexer()
         return self._bm25_indexer
+
+    def _get_image_storage(self) -> ImageStorage:
+        """获取图片存储。"""
+        if self._image_storage is None:
+            self._image_storage = ImageStorage()
+        return self._image_storage
 
     # ----------------------------------------------------------
     # 主入口
@@ -278,6 +288,9 @@ class IngestionPipeline:
             # 阶段 6: 存储
             self._report_progress(on_progress, "store", 6, _TOTAL_STAGES)
             stored_count = self._stage_store(records, trace, stage_times)
+
+            # 注册图片到 ImageStorage 索引
+            self._register_images(document, collection)
 
             # 标记成功
             integrity = self._get_integrity_checker()
@@ -533,3 +546,50 @@ class IngestionPipeline:
         """报告进度。"""
         if on_progress is not None:
             on_progress(stage_name, current, total)
+
+    def _register_images(self, document: "Document", collection: str) -> None:
+        """将文档中的图片注册到 ImageStorage 索引。
+
+        PdfLoader 已将图片文件保存到磁盘，本方法仅将路径写入 SQLite 索引，
+        使 Dashboard 能正确显示图片数量。
+
+        参数:
+            document: 已加载的文档对象
+            collection: 集合名称
+        """
+        images = document.metadata.get("images", [])
+        if not images:
+            return
+
+        storage = self._get_image_storage()
+        file_hash = document.metadata.get("file_hash", "")
+        registered = 0
+
+        for img in images:
+            if isinstance(img, dict):
+                image_id = img.get("id", "")
+                image_path = img.get("path", "")
+                page_num = img.get("page", 0)
+            else:
+                # ImageRef 对象
+                image_id = getattr(img, "id", "")
+                image_path = getattr(img, "path", "")
+                page_num = getattr(img, "page", 0)
+
+            if not image_id or not image_path:
+                continue
+
+            try:
+                storage.register_image(
+                    image_id=image_id,
+                    file_path=image_path,
+                    collection=collection,
+                    doc_hash=file_hash,
+                    page_num=page_num,
+                )
+                registered += 1
+            except Exception as e:
+                logger.warning("图片注册失败: %s, 错误: %s", image_id, e)
+
+        if registered > 0:
+            logger.info("图片注册完成: %d 张", registered)
