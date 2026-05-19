@@ -83,6 +83,7 @@ class PdfLoader(BaseLoader):
             "source_path": os.path.abspath(path),
             "doc_type": "pdf",
             "doc_hash": doc_hash,
+            "collection": collection,
             "file_size": os.path.getsize(path),
             "title": title or os.path.basename(path),
         }
