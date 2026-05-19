@@ -70,8 +70,9 @@ def page_data_browser():
 
 
 def page_ingestion_manager():
-    """Ingestion 管理页面（G4 占位）。"""
-    _placeholder_page("📥 Ingestion 管理", "G4")
+    """Ingestion 管理页面。"""
+    from src.observability.dashboard.pages.ingestion_manager import render_ingestion_manager
+    render_ingestion_manager(_get_data_service())
 
 
 def page_ingestion_traces():
