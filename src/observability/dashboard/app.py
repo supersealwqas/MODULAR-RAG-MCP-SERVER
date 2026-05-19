@@ -100,8 +100,9 @@ def page_query_traces():
 
 
 def page_evaluation():
-    """评估面板页面（H4 占位）。"""
-    _placeholder_page("📈 评估面板", "H4")
+    """评估面板页面。"""
+    from src.observability.dashboard.pages.evaluation_panel import render_evaluation_panel
+    render_evaluation_panel(_get_config_service())
 
 
 # === 导航配置 ===

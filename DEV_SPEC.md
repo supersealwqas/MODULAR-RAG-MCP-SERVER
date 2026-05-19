@@ -2045,8 +2045,8 @@ dashboard:
 | H1 | RagasEvaluator 实现 | [x] | 2026-05-19 | RagasEvaluator+evaluator_factory注册+9项测试 |
 | H2 | CompositeEvaluator 实现 | [x] | 2026-05-19 | CompositeEvaluator+并行执行+10项测试 |
 | H3 | EvalRunner + Golden Test Set | [x] | 2026-05-19 | EvalRunner+golden_test_set.json+evaluate.py+13项测试 |
-| H4 | 评估面板页面 | [ ] | | |
-| H5 | Recall 回归测试（E2E） | [ ] | | |
+| H4 | 评估面板页面 | [x] | 2026-05-19 | evaluation_panel.py+评估运行+指标展示+历史对比 |
+| H5 | Recall 回归测试（E2E） | [x] | 2026-05-19 | test_recall.py+golden_test_set扩充+8项测试 |
 
 #### 阶段 I：端到端验收与文档收口
 

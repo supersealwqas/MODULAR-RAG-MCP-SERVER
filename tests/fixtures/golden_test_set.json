@@ -24,6 +24,31 @@
       "query": "如何实现混合检索？",
       "expected_chunk_ids": ["hybrid_search_001", "hybrid_search_002"],
       "expected_sources": ["retrieval_guide.pdf"]
+    },
+    {
+      "query": "什么是向量数据库？",
+      "expected_chunk_ids": ["vector_db_001", "vector_db_002"],
+      "expected_sources": ["vector_store_guide.pdf"]
+    },
+    {
+      "query": "如何优化检索性能？",
+      "expected_chunk_ids": ["perf_opt_001", "perf_opt_002"],
+      "expected_sources": ["performance_guide.pdf"]
+    },
+    {
+      "query": "Embedding 模型如何选择？",
+      "expected_chunk_ids": ["embedding_select_001", "embedding_select_002"],
+      "expected_sources": ["embedding_guide.pdf"]
+    },
+    {
+      "query": "如何处理多模态数据？",
+      "expected_chunk_ids": ["multimodal_001", "multimodal_002"],
+      "expected_sources": ["multimodal_guide.pdf"]
+    },
+    {
+      "query": "MCP 协议是什么？",
+      "expected_chunk_ids": ["mcp_intro_001", "mcp_intro_002"],
+      "expected_sources": ["mcp_protocol.pdf"]
     }
   ]
 }
