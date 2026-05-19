@@ -113,6 +113,24 @@ class BaseVectorStore(ABC):
         """
         raise NotImplementedError("此存储后端未实现 count 方法")
 
+    def get_by_metadata(
+        self,
+        filters: Dict[str, Any],
+        include_documents: bool = False,
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
+        """根据元数据过滤条件查询记录。
+
+        参数:
+            filters: 过滤条件字典
+            include_documents: 是否返回 documents/text 字段
+            **kwargs: 其他参数
+
+        返回:
+            记录字典列表，每个字典包含 id、metadata（和可选的 text）
+        """
+        raise NotImplementedError("此存储后端未实现 get_by_metadata 方法")
+
     @abstractmethod
     def get_by_ids(self, ids: List[str], **kwargs) -> List[Dict[str, Any]]:
         """根据 ID 批量获取记录。

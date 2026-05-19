@@ -265,6 +265,42 @@ class ChromaStore(BaseVectorStore):
         collection = self._get_collection()
         return collection.count()
 
+    def list_collections(self) -> List[Dict[str, Any]]:
+        """列出持久化目录中的所有 collection 及其统计信息。
+
+        返回:
+            collection 信息列表，每个包含 name 和 count 字段
+        """
+        try:
+            import chromadb
+            from chromadb.config import Settings as ChromaSettings
+        except ImportError:
+            raise ImportError(
+                "请安装 chromadb 库: uv pip install chromadb"
+            )
+
+        # 确保 client 已初始化
+        if self._client is None:
+            self._client = chromadb.PersistentClient(
+                path=self.persist_directory,
+                settings=ChromaSettings(anonymized_telemetry=False),
+            )
+
+        collections = self._client.list_collections()
+        result = []
+        for col in collections:
+            try:
+                count = col.count()
+                name = col.name
+            except Exception:
+                name = str(col)
+                count = 0
+            result.append({
+                "name": name,
+                "count": count,
+            })
+        return result
+
     def get_by_ids(self, ids: List[str], **kwargs) -> List[Dict[str, Any]]:
         """根据 ID 批量获取记录。
 
@@ -295,5 +331,69 @@ class ChromaStore(BaseVectorStore):
                     "text": results["documents"][i] if results["documents"] else "",
                     "metadata": meta,
                 })
+
+        return records
+
+    def get_by_metadata(
+        self,
+        filters: Dict[str, Any],
+        include_documents: bool = False,
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
+        """根据元数据过滤条件查询记录。
+
+        使用 ChromaDB 的 where 过滤语法，返回匹配的记录 ID 和 metadata。
+        用于 DocumentManager 查找属于某文档的所有 chunk。
+
+        参数:
+            filters: 过滤条件字典（如 {"source_path": "doc.pdf"}）
+            include_documents: 是否返回 documents 字段（默认 False，仅返回 id+metadata）
+            **kwargs: 其他参数
+
+        返回:
+            记录字典列表，每个字典包含 id、metadata（和可选的 text）
+
+        异常:
+            ValueError: 过滤条件为空时抛出
+        """
+        if not filters:
+            raise ValueError("过滤条件不能为空")
+
+        collection = self._get_collection()
+
+        # 构建 where 过滤条件
+        if len(filters) == 1:
+            key, value = next(iter(filters.items()))
+            where = {key: value}
+        else:
+            where = {"$and": [{k: v} for k, v in filters.items()]}
+
+        include_fields = ["metadatas"]
+        if include_documents:
+            include_fields.append("documents")
+
+        try:
+            results = collection.get(
+                where=where,
+                include=include_fields,
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"ChromaDB 元数据查询失败 (collection={self.collection_name}): {e}"
+            ) from e
+
+        records = []
+        if results and results["ids"]:
+            for i, doc_id in enumerate(results["ids"]):
+                meta = results["metadatas"][i] if results["metadatas"] else {}
+                meta.pop("_has_metadata", None)
+                meta = self._deserialize_metadata(meta)
+                record: Dict[str, Any] = {
+                    "id": doc_id,
+                    "metadata": meta,
+                }
+                if include_documents and results.get("documents"):
+                    record["text"] = results["documents"][i] or ""
+                records.append(record)
 
         return records

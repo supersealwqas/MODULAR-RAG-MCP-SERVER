@@ -260,6 +260,9 @@ class IngestionPipeline:
             self._report_progress(on_progress, "load", 2, _TOTAL_STAGES)
             document = self._stage_load(file_path, collection, trace, stage_times)
 
+            # 将完整 file_hash 写入 metadata，供 DocumentManager 删除时溯源
+            document.metadata["file_hash"] = file_hash
+
             # 阶段 3: 切分
             self._report_progress(on_progress, "split", 3, _TOTAL_STAGES)
             chunks = self._stage_split(document, trace, stage_times)
