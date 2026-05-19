@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from typing import Optional
 
 import streamlit as st
@@ -74,12 +73,13 @@ def _run_ingestion(uploaded_file, collection: str) -> None:
         uploaded_file: Streamlit UploadedFile 对象
         collection: 集合名称
     """
-    # 将上传文件写入临时目录
-    temp_dir = tempfile.mkdtemp()
-    temp_path = os.path.join(temp_dir, uploaded_file.name)
+    # 将上传文件保存到 data/documents/{collection}/ 目录
+    save_dir = os.path.join("data", "documents", collection)
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, uploaded_file.name)
 
     try:
-        with open(temp_path, "wb") as f:
+        with open(save_path, "wb") as f:
             f.write(uploaded_file.getvalue())
 
         # 创建进度条
@@ -102,7 +102,7 @@ def _run_ingestion(uploaded_file, collection: str) -> None:
         settings = load_settings()
         pipeline = IngestionPipeline(settings)
         result = pipeline.run(
-            file_path=temp_path,
+            file_path=save_path,
             collection=collection,
             force=True,
             on_progress=on_progress,
@@ -128,14 +128,6 @@ def _run_ingestion(uploaded_file, collection: str) -> None:
 
     except Exception as e:
         st.error(f"❌ 摄取失败: {e}")
-
-    finally:
-        # 清理临时文件
-        try:
-            os.remove(temp_path)
-            os.rmdir(temp_dir)
-        except OSError:
-            pass
 
 
 def _render_delete_section(data_service: DataService) -> None:
