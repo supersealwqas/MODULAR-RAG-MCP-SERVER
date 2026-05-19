@@ -1,0 +1,29 @@
+{
+  "test_cases": [
+    {
+      "query": "如何配置 Ollama？",
+      "expected_chunk_ids": ["config_ollama_001", "config_ollama_002"],
+      "expected_sources": ["config_guide.pdf"]
+    },
+    {
+      "query": "什么是 RAG（检索增强生成）？",
+      "expected_chunk_ids": ["rag_intro_001", "rag_intro_002"],
+      "expected_sources": ["rag_overview.pdf"]
+    },
+    {
+      "query": "如何使用 ChromaDB 存储向量？",
+      "expected_chunk_ids": ["chroma_usage_001", "chroma_usage_002"],
+      "expected_sources": ["vector_store_guide.pdf"]
+    },
+    {
+      "query": "BM25 算法的原理是什么？",
+      "expected_chunk_ids": ["bm25_principle_001", "bm25_principle_002"],
+      "expected_sources": ["search_algorithms.pdf"]
+    },
+    {
+      "query": "如何实现混合检索？",
+      "expected_chunk_ids": ["hybrid_search_001", "hybrid_search_002"],
+      "expected_sources": ["retrieval_guide.pdf"]
+    }
+  ]
+}

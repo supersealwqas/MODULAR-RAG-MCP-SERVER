@@ -136,7 +136,7 @@
 |---------|---------|------|---------|------|
 | H1 | RagasEvaluator 实现 | [x] | 2026-05-19 | RagasEvaluator+evaluator_factory注册+9项测试 |
 | H2 | CompositeEvaluator 实现 | [x] | 2026-05-19 | CompositeEvaluator+并行执行+10项测试 |
-| H3 | EvalRunner + Golden Test Set | [ ] | | |
+| H3 | EvalRunner + Golden Test Set | [x] | 2026-05-19 | EvalRunner+golden_test_set.json+evaluate.py+13项测试 |
 | H4 | 评估面板页面 | [ ] | | |
 | H5 | Recall 回归测试（E2E） | [ ] | | |
 
@@ -163,9 +163,9 @@
 | 阶段 E | 6 | 6 | 100% |
 | 阶段 F | 5 | 5 | 100% |
 | 阶段 G | 6 | 5 | 83% |
-| 阶段 H | 5 | 2 | 40% |
+| 阶段 H | 5 | 3 | 60% |
 | 阶段 I | 5 | 0 | 0% |
-| **总计** | **68** | **58** | **85%** |
+| **总计** | **68** | **59** | **87%** |
 
 
 ---
