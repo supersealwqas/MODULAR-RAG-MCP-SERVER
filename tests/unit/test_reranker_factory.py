@@ -40,6 +40,8 @@ class FakeReranker(BaseReranker):
                 metadata=candidate.metadata,
             ))
         if top_k is not None:
+            if top_k <= 0:
+                return []
             results = results[:top_k]
         return results
 
@@ -130,6 +132,19 @@ class TestNoneReranker:
         results = reranker.rerank(query="test", candidates=candidates, top_k=2)
         assert len(results) == 2
 
+    def test_none_reranker_top_k_boundaries(self):
+        """NoneReranker 处理 top_k 边界情况 (0, 负数, 大于候选数)。"""
+        reranker = NoneReranker()
+        candidates = [Candidate(id="1", text="text1", score=0.9)]
+        
+        # top_k <= 0 应返回空列表
+        assert reranker.rerank(query="test", candidates=candidates, top_k=0) == []
+        assert reranker.rerank(query="test", candidates=candidates, top_k=-1) == []
+        
+        # top_k 大于长度时返回全部
+        results = reranker.rerank(query="test", candidates=candidates, top_k=10)
+        assert len(results) == 1
+
     def test_none_reranker_empty_candidates(self):
         """空候选列表应返回空结果。"""
         reranker = NoneReranker()
@@ -172,6 +187,19 @@ class TestBaseReranker:
         results = reranker.rerank(query="test", candidates=candidates, top_k=1)
         assert len(results) == 1
         assert results[0].id == "3"
+
+    def test_fake_reranker_top_k_boundaries(self):
+        """FakeReranker 处理 top_k 边界情况。"""
+        reranker = FakeReranker()
+        candidates = [Candidate(id="1", text="text", score=0.9)]
+        
+        # top_k <= 0 应返回空列表
+        assert reranker.rerank(query="test", candidates=candidates, top_k=0) == []
+        assert reranker.rerank(query="test", candidates=candidates, top_k=-1) == []
+        
+        # top_k 大于长度时返回全部
+        results = reranker.rerank(query="test", candidates=candidates, top_k=10)
+        assert len(results) == 1
 
 
 # --- RerankerFactory 测试 ---

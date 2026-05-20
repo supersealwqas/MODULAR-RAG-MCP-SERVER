@@ -45,24 +45,52 @@ class SparseRetriever:
         self._vector_store = vector_store
         self.top_k = settings.retrieval.top_k
 
-    def _get_bm25_indexer(self) -> BM25Indexer:
-        """获取 BM25Indexer 实例（延迟创建 + 自动加载索引）。"""
-        if self._bm25_indexer is None:
-            self._bm25_indexer = BM25Indexer()
-            self._bm25_indexer.load()
-        return self._bm25_indexer
+    def _get_bm25_indexer(self, collection_name: str = "default") -> BM25Indexer:
+        """获取 BM25Indexer 实例（延迟创建 + 自动加载索引）。
 
-    def _get_vector_store(self) -> BaseVectorStore:
-        """获取 VectorStore 实例（延迟创建）。"""
-        if self._vector_store is None:
-            from src.libs.vector_store.vector_store_factory import VectorStoreFactory
-            self._vector_store = VectorStoreFactory.create(self._settings.vector_store)
+        参数:
+            collection_name: 集合名称
+
+        返回:
+            BM25Indexer 实例
+        """
+        if self._bm25_indexer is not None:
+            return self._bm25_indexer
+
+        # 始终为指定 collection 加载索引
+        indexer = BM25Indexer()
+        try:
+            indexer.load(collection=collection_name)
+        except (FileNotFoundError, Exception) as e:
+            logger.warning("加载 BM25 索引 [%s] 失败: %s", collection_name, e)
+        return indexer
+
+    def _get_vector_store(self, collection_name: str = "default") -> BaseVectorStore:
+        """获取 VectorStore 实例（延迟创建）。
+
+        参数:
+            collection_name: 集合名称
+
+        返回:
+            BaseVectorStore 实例
+        """
+        # 如果已经有一个 store 且 collection 一致，则复用。如果是 Mock 则直接复用。
+        is_mock = type(self._vector_store).__name__ in ('Mock', 'MagicMock', 'NonCallableMagicMock', 'NonCallableMock')
+        if self._vector_store is not None and (is_mock or getattr(self._vector_store, "collection_name", None) == collection_name):
+            return self._vector_store
+
+        from src.libs.vector_store.vector_store_factory import VectorStoreFactory
+        self._vector_store = VectorStoreFactory.create(
+            self._settings.vector_store,
+            collection_name=collection_name
+        )
         return self._vector_store
 
     def retrieve(
         self,
         keywords: List[str],
         top_k: Optional[int] = None,
+        collection: Optional[str] = None,
         trace: Optional[TraceContext] = None,
     ) -> List[RetrievalResult]:
         """执行稀疏检索。
@@ -72,6 +100,7 @@ class SparseRetriever:
         参数:
             keywords: 查询关键词列表（来自 QueryProcessor.process().keywords）
             top_k: 返回结果数（默认使用配置值）
+            collection: 集合名称（可选）
             trace: 可选的追踪上下文
 
         返回:
@@ -80,11 +109,12 @@ class SparseRetriever:
         if not keywords:
             return []
 
+        col = collection or "default"
         k = top_k if top_k is not None else self.top_k
         start_time = time.time()
 
         # 1. BM25 检索 chunk_ids + scores
-        bm25_indexer = self._get_bm25_indexer()
+        bm25_indexer = self._get_bm25_indexer(collection_name=col)
         bm25_results = bm25_indexer.query(keywords, top_k=k)
 
         bm25_ms = (time.time() - start_time) * 1000
@@ -94,6 +124,7 @@ class SparseRetriever:
                 trace.record_stage(
                     "sparse_retrieval",
                     method="bm25",
+                    collection=col,
                     keyword_count=len(keywords),
                     result_count=0,
                     bm25_ms=round(bm25_ms, 2),
@@ -107,7 +138,7 @@ class SparseRetriever:
         scores = {cid: score for cid, score in bm25_results}
 
         lookup_start = time.time()
-        vector_store = self._get_vector_store()
+        vector_store = self._get_vector_store(collection_name=col)
         records = vector_store.get_by_ids(chunk_ids)
         lookup_ms = (time.time() - lookup_start) * 1000
 

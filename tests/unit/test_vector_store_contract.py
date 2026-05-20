@@ -77,6 +77,29 @@ class FakeVectorStore(BaseVectorStore):
                 })
         return results
 
+    def get_by_metadata(
+        self,
+        filters: Dict[str, Any],
+        include_documents: bool = False,
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
+        """根据元数据过滤条件查询记录。"""
+        if not filters:
+            raise ValueError("过滤条件不能为空")
+            
+        results = []
+        for record in self._records.values():
+            match = all(record.metadata.get(k) == v for k, v in filters.items())
+            if match:
+                res = {
+                    "id": record.id,
+                    "metadata": record.metadata,
+                }
+                if include_documents:
+                    res["text"] = record.text
+                results.append(res)
+        return results
+
     def count(self, **kwargs) -> int:
         """返回记录总数。"""
         return len(self._records)
@@ -201,6 +224,37 @@ class TestBaseVectorStore:
         deleted = store.delete(["1"])
         assert deleted == 1
         assert store.count() == 1
+
+    def test_delete_by_metadata(self):
+        """delete_by_metadata 应正确按条件删除记录。"""
+        store = FakeVectorStore()
+        store.upsert([
+            VectorRecord(id="1", vector=[0.1], text="doc1", metadata={"source": "A", "type": "pdf"}),
+            VectorRecord(id="2", vector=[0.2], text="doc2", metadata={"source": "B", "type": "pdf"}),
+            VectorRecord(id="3", vector=[0.3], text="doc3", metadata={"source": "A", "type": "txt"}),
+        ])
+        
+        # 删除 source=A 的记录
+        deleted = store.delete_by_metadata({"source": "A"})
+        assert deleted == 2
+        assert store.count() == 1
+        assert store.get_by_ids(["2"])  # 剩下 2
+        assert not store.get_by_ids(["1", "3"])
+        
+    def test_delete_by_metadata_no_match(self):
+        """delete_by_metadata 没有匹配时返回 0。"""
+        store = FakeVectorStore()
+        store.upsert([VectorRecord(id="1", vector=[0.1], text="doc1", metadata={"source": "A"})])
+        
+        deleted = store.delete_by_metadata({"source": "B"})
+        assert deleted == 0
+        assert store.count() == 1
+        
+    def test_delete_by_metadata_empty_filters(self):
+        """delete_by_metadata 过滤条件为空时抛出 ValueError。"""
+        store = FakeVectorStore()
+        with pytest.raises(ValueError, match="过滤条件不能为空"):
+            store.delete_by_metadata({})
 
 
 # --- VectorStoreFactory 测试 ---

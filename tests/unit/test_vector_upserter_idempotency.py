@@ -16,6 +16,7 @@ from src.core.trace.trace_context import TraceContext
 from src.core.types import ChunkRecord
 from src.ingestion.storage.vector_upserter import VectorUpserter
 from src.libs.vector_store.base_vector_store import BaseVectorStore, VectorRecord
+from src.libs.vector_store.vector_store_factory import register_vector_store
 
 
 # ============================================================
@@ -23,11 +24,12 @@ from src.libs.vector_store.base_vector_store import BaseVectorStore, VectorRecor
 # ============================================================
 
 
+@register_vector_store("mock")
 class MockVectorStore(BaseVectorStore):
     """内存 Mock VectorStore，用于测试幂等性。"""
 
-    def __init__(self) -> None:
-        super().__init__(collection_name="test")
+    def __init__(self, collection_name: str = "default", **kwargs) -> None:
+        super().__init__(collection_name=collection_name, **kwargs)
         self._storage: Dict[str, VectorRecord] = {}
         self.upsert_call_count = 0
         self.last_upserted: List[VectorRecord] = []
@@ -88,6 +90,7 @@ def _make_settings() -> Settings:
         rerank=MagicMock(),
         evaluation=MagicMock(),
         observability=MagicMock(),
+        pipeline=MagicMock(),
     )
 
 

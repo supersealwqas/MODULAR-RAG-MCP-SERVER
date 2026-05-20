@@ -28,7 +28,7 @@ def compute_hit_rate(retrieved_ids: List[str], golden_ids: List[str], k: int = 1
     返回:
         1.0 表示命中，0.0 表示未命中
     """
-    if not golden_ids:
+    if not golden_ids or k <= 0:
         return 0.0
 
     top_k = set(retrieved_ids[:k])

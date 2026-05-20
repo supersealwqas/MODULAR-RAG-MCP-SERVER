@@ -48,14 +48,24 @@ class VectorUpserter:
         self._settings = settings
         self._vector_store = vector_store
 
-    def _get_vector_store(self) -> BaseVectorStore:
+    def _get_vector_store(self, collection_name: str = "default") -> BaseVectorStore:
         """获取 VectorStore 实例（延迟创建）。
+
+        参数:
+            collection_name: 集合名称
 
         返回:
             BaseVectorStore 实例
         """
-        if self._vector_store is None:
-            self._vector_store = VectorStoreFactory.create(self._settings.vector_store)
+        # 如果已经有一个 store 且 collection 一致，则复用
+        if self._vector_store is not None and self._vector_store.collection_name == collection_name:
+            return self._vector_store
+
+        # 否则创建（或更新）对应的 collection store
+        self._vector_store = VectorStoreFactory.create(
+            self._settings.vector_store,
+            collection_name=collection_name
+        )
         return self._vector_store
 
     @staticmethod
@@ -114,6 +124,7 @@ class VectorUpserter:
     def upsert(
         self,
         records: List[ChunkRecord],
+        collection: str = "default",
         trace: Optional[TraceContext] = None,
     ) -> int:
         """将 ChunkRecord 列表写入 VectorStore。
@@ -123,6 +134,7 @@ class VectorUpserter:
 
         参数:
             records: 含 dense_vector 的 ChunkRecord 列表
+            collection: 集合名称
             trace: 可选的追踪上下文
 
         返回:
@@ -148,7 +160,7 @@ class VectorUpserter:
         vector_records = [self._record_to_vector_record(r) for r in valid_records]
 
         # 调用 VectorStore upsert
-        store = self._get_vector_store()
+        store = self._get_vector_store(collection_name=collection)
         upserted = store.upsert(vector_records)
 
         elapsed_ms = (time.time() - start_time) * 1000
@@ -158,6 +170,7 @@ class VectorUpserter:
             trace.record_stage(
                 "vector_upsert",
                 method=self._settings.vector_store.provider,
+                collection=collection,
                 total_records=len(records),
                 valid_records=len(valid_records),
                 skipped_records=skipped,
@@ -166,7 +179,8 @@ class VectorUpserter:
             )
 
         logger.info(
-            "VectorStore upsert 完成: %d/%d 条记录写入（耗时 %.1fms）",
+            "VectorStore [%s] upsert 完成: %d/%d 条记录写入（耗时 %.1fms）",
+            collection,
             upserted,
             len(records),
             elapsed_ms,
@@ -177,12 +191,14 @@ class VectorUpserter:
     def delete(
         self,
         chunk_ids: List[str],
+        collection: str = "default",
         trace: Optional[TraceContext] = None,
     ) -> int:
         """从 VectorStore 中删除指定 chunk。
 
         参数:
             chunk_ids: 待删除的 chunk ID 列表
+            collection: 集合名称
             trace: 可选的追踪上下文
 
         返回:
@@ -192,12 +208,12 @@ class VectorUpserter:
             return 0
 
         start_time = time.time()
-        store = self._get_vector_store()
+        store = self._get_vector_store(collection_name=collection)
 
         try:
             deleted = store.delete(chunk_ids)
         except NotImplementedError:
-            logger.warning("VectorStore 不支持 delete 操作")
+            logger.warning("VectorStore [%s] 不支持 delete 操作", collection)
             return 0
 
         elapsed_ms = (time.time() - start_time) * 1000
@@ -205,10 +221,11 @@ class VectorUpserter:
         if trace:
             trace.record_stage(
                 "vector_delete",
+                collection=collection,
                 requested_count=len(chunk_ids),
                 deleted_count=deleted,
                 elapsed_ms=round(elapsed_ms, 2),
             )
 
-        logger.info("VectorStore 删除完成: %d 条记录", deleted)
+        logger.info("VectorStore [%s] 删除完成: %d 条记录", collection, deleted)
         return deleted

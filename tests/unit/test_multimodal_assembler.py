@@ -261,3 +261,27 @@ class TestAssembleMultimodalResponse:
         ]
         content = assemble_multimodal_response(results, "Markdown")
         assert len(content) == 1  # 只有文本
+
+    def test_json_serializability(self, temp_image):
+        """组装后的响应应可被 JSON 序列化（MCP 协议要求）。"""
+        import json
+        results = [
+            RetrievalResult(
+                chunk_id="c1",
+                score=0.9,
+                text="测试文本",
+                metadata={"images": [{"id": "img_001", "path": temp_image}]},
+            )
+        ]
+        content = assemble_multimodal_response(results, "Markdown")
+        response = {
+            "content": content,
+            "isError": False,
+            "structuredContent": {"result_count": 1}
+        }
+        
+        # 验证不抛出 TypeError
+        serialized = json.dumps(response, ensure_ascii=False)
+        assert "Markdown" in serialized
+        assert "image/png" in serialized
+        assert len(serialized) > 100

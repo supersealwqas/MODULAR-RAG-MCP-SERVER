@@ -51,6 +51,7 @@ def _make_settings_stub(**kwargs) -> Settings:
         rerank=rerank_mock,
         evaluation=MagicMock(),
         observability=MagicMock(),
+        pipeline=MagicMock(),
     )
 
 

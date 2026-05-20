@@ -49,6 +49,7 @@ def _make_settings_stub(**kwargs) -> Settings:
         rerank=MagicMock(),
         evaluation=MagicMock(),
         observability=MagicMock(),
+        pipeline=MagicMock(),
     )
 
 
@@ -415,3 +416,182 @@ class TestHybridSearchSerialization:
             restored = RetrievalResult.from_dict(d)
             assert restored.chunk_id == r.chunk_id
             assert restored.score == r.score
+
+
+# ============================================================
+# F3 验收标准：Query 链路完整 Trace 测试
+# ============================================================
+
+
+class TestQueryPipelineTrace:
+    """F3 验收标准：验证查询链路各阶段 trace 记录完整。
+
+    验收标准：
+    - 一次查询生成 trace，包含 query_processing/dense_retrieval/sparse_retrieval/fusion/rerank 阶段
+    - 每个阶段记录 elapsed_ms 耗时字段和 method 字段
+    - trace.to_dict() 中 trace_type == "query"
+    """
+
+    def test_trace_contains_all_sub_stages(self):
+        """HybridSearch trace 包含汇总阶段记录（mock 组件不记录子阶段）。"""
+        settings = _make_settings_stub()
+        qp = _make_mock_query_processor()
+        dense = _make_mock_dense_retriever(_make_retrieval_results(["a", "b"]))
+        sparse = _make_mock_sparse_retriever(_make_retrieval_results(["b", "c"]))
+        trace = TraceContext(trace_type="query")
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        hs.search("test query", trace=trace)
+
+        # HybridSearch 记录汇总阶段
+        hs_stages = [s for s in trace.stages if s["name"] == "hybrid_search"]
+        assert len(hs_stages) == 1
+        assert "elapsed_ms" in hs_stages[0]
+        assert "method" in hs_stages[0]
+        assert hs_stages[0]["method"] == "hybrid"
+
+    def test_trace_sub_stages_with_real_components(self):
+        """使用真实组件（带 mock 底层）验证各子阶段 trace 记录。"""
+        from unittest.mock import patch
+
+        settings = _make_settings_stub()
+        qp = QueryProcessor(settings)
+
+        # 创建带 trace 记录能力的 mock retriever
+        dense = MagicMock(spec=DenseRetriever)
+        dense.retrieve.return_value = _make_retrieval_results(["a"])
+
+        sparse = MagicMock(spec=SparseRetriever)
+        sparse.retrieve.return_value = _make_retrieval_results(["b"])
+
+        trace = TraceContext(trace_type="query")
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        hs.search("test query", trace=trace)
+
+        # QueryProcessor 应记录 query_processing
+        qp_stages = [s for s in trace.stages if s["name"] == "query_processing"]
+        assert len(qp_stages) == 1
+        assert "method" in qp_stages[0]
+        assert qp_stages[0]["method"] in ["jieba", "regex"]
+
+    def test_trace_type_is_query(self):
+        """trace.to_dict() 中 trace_type == "query"。"""
+        trace = TraceContext(trace_type="query")
+        trace.record_stage("test")
+        trace.finish()
+
+        data = trace.to_dict()
+        assert data["trace_type"] == "query"
+
+    def test_all_stages_have_method_field(self):
+        """所有阶段都包含 method 字段。"""
+        settings = _make_settings_stub()
+        qp = _make_mock_query_processor()
+        dense = _make_mock_dense_retriever(_make_retrieval_results(["a"]))
+        sparse = _make_mock_sparse_retriever(_make_retrieval_results(["b"]))
+        trace = TraceContext(trace_type="query")
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        hs.search("test query", trace=trace)
+
+        # 验证所有记录的阶段都有 method 字段
+        for stage in trace.stages:
+            assert "method" in stage, f"阶段 {stage['name']} 缺少 method 字段"
+
+    def test_all_stages_have_elapsed_ms_field(self):
+        """所有阶段都包含 elapsed_ms 字段。"""
+        settings = _make_settings_stub()
+        qp = _make_mock_query_processor()
+        dense = _make_mock_dense_retriever(_make_retrieval_results(["a"]))
+        sparse = _make_mock_sparse_retriever(_make_retrieval_results(["b"]))
+        trace = TraceContext(trace_type="query")
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        hs.search("test query", trace=trace)
+
+        # 验证所有记录的阶段都有 elapsed_ms 字段
+        for stage in trace.stages:
+            assert "elapsed_ms" in stage, f"阶段 {stage['name']} 缺少 elapsed_ms 字段"
+
+
+# ============================================================
+# 极值测试：验证混合检索在分数极度不平衡下的稳定性
+# ============================================================
+
+
+class TestHybridSearchImbalance:
+    """极值测试：Dense 与 Sparse 分数极度不平衡下的融合表现。"""
+
+    def test_extreme_imbalance_rrf_is_score_agnostic(self):
+        """验证 RRF 算法对分数量级不敏感（即：分数不淹没排名）。
+        
+        即使 Sparse 分数是 Dense 的 1,000,000 倍，如果两者都是各自路径的 Top-1，
+        在等权重下它们的融合分数应该是相同的。这证明了 RRF 能有效平衡不同量级的分数，
+        防止某一路检索（如 BM25 极高分）彻底淹没另一路。
+        """
+        settings = _make_settings_stub(dense_weight=0.5, sparse_weight=0.5)
+        qp = _make_mock_query_processor()
+
+        # Dense 分数极低 (0.0001)
+        dense_results = _make_retrieval_results(["dense_only"], scores=[0.0001])
+        # Sparse 分数极高 (100.0)
+        sparse_results = _make_retrieval_results(["sparse_only"], scores=[100.0])
+
+        dense = _make_mock_dense_retriever(dense_results)
+        sparse = _make_mock_sparse_retriever(sparse_results)
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        results = hs.search("extreme query")
+
+        # 验证结果不为空
+        assert len(results) == 2
+        
+        # 因为两者都是各自列表的 Rank 0，且权重相等，所以融合分数应该完全一致
+        # RRF Score = weight * (1 / (k + rank)) = 0.5 * (1 / (60 + 0)) = 0.008333...
+        assert results[0].score == pytest.approx(results[1].score)
+        
+        # 验证分数在合理范围内（未出现溢出或 NaN）
+        assert 0.0 < results[0].score < 1.0
+
+    def test_imbalance_broken_by_weights(self):
+        """验证在 Rank 相同但分数不平衡时，可以通过权重进行优先级干预。"""
+        # 赋予 Sparse 更高权重 (0.7)，使其在同 Rank 下胜出
+        settings = _make_settings_stub(dense_weight=0.3, sparse_weight=0.7)
+        qp = _make_mock_query_processor()
+
+        dense_results = _make_retrieval_results(["dense_only"], scores=[0.001])
+        sparse_results = _make_retrieval_results(["sparse_only"], scores=[999.0])
+
+        dense = _make_mock_dense_retriever(dense_results)
+        sparse = _make_mock_sparse_retriever(sparse_results)
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        results = hs.search("weighted extreme query")
+
+        # 验证权重生效：权重高的 Sparse 路径排在前面
+        assert results[0].chunk_id == "sparse_only"
+        assert results[1].chunk_id == "dense_only"
+        assert results[0].score > results[1].score
+
+    def test_imbalance_consensus_wins(self):
+        """验证 RRF 的共识特性：出现在多路结果中的项，即使原始分数低，也会排在前面。"""
+        settings = _make_settings_stub(dense_weight=0.5, sparse_weight=0.5)
+        qp = _make_mock_query_processor()
+
+        # id_shared 在 Dense 是 Rank 0 (高分)，在 Sparse 是 Rank 1 (低分)
+        # id_sparse_only 在 Sparse 是 Rank 0 (极高分)
+        dense_results = _make_retrieval_results(["id_shared"], scores=[0.9])
+        sparse_results = _make_retrieval_results(["id_sparse_only", "id_shared"], scores=[100.0, 0.1])
+
+        dense = _make_mock_dense_retriever(dense_results)
+        sparse = _make_mock_sparse_retriever(sparse_results)
+
+        hs = HybridSearch(settings, query_processor=qp, dense_retriever=dense, sparse_retriever=sparse)
+        results = hs.search("consensus query")
+
+        # id_shared 出现在两路中，分数 = (0.5/60) + (0.5/61)
+        # id_sparse_only 仅出现在一路，分数 = (0.5/60)
+        # 因此 id_shared 应该胜出
+        assert results[0].chunk_id == "id_shared"
+        assert results[1].chunk_id == "id_sparse_only"

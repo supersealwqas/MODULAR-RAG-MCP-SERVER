@@ -117,7 +117,8 @@ class DocumentManager:
     实现文档的统一查询与删除。
 
     属性:
-        _chroma_store: ChromaDB 向量存储实例
+        _settings: 全局配置对象
+        _chroma_store: ChromaDB 向量存储实例（默认集合）
         _bm25_indexer: BM25 索引器实例
         _image_storage: 图片存储实例
         _file_integrity: 文件完整性检查器实例
@@ -129,6 +130,7 @@ class DocumentManager:
         bm25_indexer: BM25Indexer,
         image_storage: ImageStorage,
         file_integrity: FileIntegrityChecker,
+        settings: Optional[Settings] = None,
     ) -> None:
         """初始化 DocumentManager。
 
@@ -137,11 +139,26 @@ class DocumentManager:
             bm25_indexer: BM25 索引器实例
             image_storage: 图片存储实例
             file_integrity: 文件完整性检查器实例
+            settings: 全局配置对象
         """
         self._chroma_store = chroma_store
         self._bm25_indexer = bm25_indexer
         self._image_storage = image_storage
         self._file_integrity = file_integrity
+        self._settings = settings
+
+    def _get_collection_store(self, collection_name: str) -> BaseVectorStore:
+        """获取特定集合的 VectorStore。"""
+        if self._chroma_store.collection_name == collection_name:
+            return self._chroma_store
+        
+        if self._settings:
+            from src.libs.vector_store.vector_store_factory import VectorStoreFactory
+            return VectorStoreFactory.create(
+                self._settings.vector_store,
+                collection_name=collection_name
+            )
+        return self._chroma_store
 
     def list_documents(
         self,
@@ -149,11 +166,8 @@ class DocumentManager:
     ) -> List[DocumentInfo]:
         """列出已摄入的文档列表。
 
-        从 FileIntegrity 获取所有已处理文件，再从 ChromaDB 查询
-        每个文件的 chunk 数量与集合信息。
-
         参数:
-            collection: 可选的集合过滤（暂未实现跨集合过滤）
+            collection: 可选的集合过滤
 
         返回:
             DocumentInfo 列表，按处理时间倒序排列
@@ -170,19 +184,23 @@ class DocumentManager:
             processed_at = record.get("processed_at", "")
             file_size = record.get("file_size", 0)
             stored_chunk_count = record.get("chunk_count", 0)
+            doc_collection = record.get("collection", "default")
 
-            # 从 ChromaDB 查询该文档的 chunk 数量与集合信息
-            chunk_count, doc_collection = self._query_document_chunks_info(
-                source_path
-            )
+            # 集合过滤
+            if collection and doc_collection != collection:
+                continue
+
+            # 从 ChromaDB 查询该文档的 chunk 数量（使用正确的 collection）
+            store = self._get_collection_store(doc_collection)
+            try:
+                records = store.get_by_metadata(filters={"source_path": source_path})
+                chunk_count = len(records)
+            except Exception:
+                chunk_count = stored_chunk_count
 
             # 优先使用 ChromaDB 统计，否则使用 FileIntegrity 记录的值
             if chunk_count == 0 and stored_chunk_count > 0:
                 chunk_count = stored_chunk_count
-
-            # 集合过滤
-            if collection and doc_collection and doc_collection != collection:
-                continue
 
             # 查询图片数量
             image_count = 0
@@ -196,7 +214,7 @@ class DocumentManager:
             documents.append(DocumentInfo(
                 source_path=source_path,
                 file_hash=file_hash,
-                collection=doc_collection or "default",
+                collection=doc_collection,
                 chunk_count=chunk_count,
                 image_count=image_count,
                 processed_at=str(processed_at),
@@ -262,12 +280,6 @@ class DocumentManager:
     ) -> DeleteResult:
         """删除文档及其关联的所有数据。
 
-        协调四个存储后端完成完整删除：
-        1. ChromaDB: 删除该文档的所有 chunk 向量
-        2. BM25: 逐个删除 chunk 的索引条目
-        3. ImageStorage: 删除该文档的所有图片
-        4. FileIntegrity: 移除处理记录
-
         参数:
             source_path: 文档源文件路径
 
@@ -277,39 +289,51 @@ class DocumentManager:
         result = DeleteResult(source_path=source_path)
         errors: List[str] = []
 
+        # 0. 确定文档所属集合
+        doc_collection = "default"
+        file_hash = ""
+        processed = self._file_integrity.list_processed()
+        for r in processed:
+            if r.get("file_path") == source_path:
+                doc_collection = r.get("collection", "default")
+                file_hash = r.get("file_hash", "")
+                break
+
         # 1. 从 ChromaDB 查找并删除 chunks
         chunk_ids: List[str] = []
         try:
-            records = self._chroma_store.get_by_metadata(
+            store = self._get_collection_store(doc_collection)
+            records = store.get_by_metadata(
                 filters={"source_path": source_path},
             )
             chunk_ids = [r["id"] for r in records]
             if chunk_ids:
-                deleted = self._chroma_store.delete(chunk_ids)
+                deleted = store.delete(chunk_ids)
                 result.chunks_deleted = deleted
                 logger.info(
-                    "ChromaDB 删除完成: %s, %d chunks",
-                    source_path, deleted,
+                    "ChromaDB [%s] 删除完成: %s, %d chunks",
+                    doc_collection, source_path, deleted,
                 )
         except Exception as e:
-            msg = f"ChromaDB 删除失败: {e}"
+            msg = f"ChromaDB [{doc_collection}] 删除失败: {e}"
             errors.append(msg)
             logger.error(msg)
 
         # 2. 从 BM25 删除 chunks
         bm25_deleted = 0
-        for chunk_id in chunk_ids:
-            try:
-                if self._bm25_indexer.remove_document(chunk_id):
-                    bm25_deleted += 1
-            except Exception as e:
-                logger.warning("BM25 删除 chunk %s 失败: %s", chunk_id, e)
-        result.bm25_deleted = bm25_deleted
         if chunk_ids:
             try:
-                self._bm25_indexer.save()
+                # 针对该 collection 加载索引
+                self._bm25_indexer.load(collection=doc_collection)
+                for chunk_id in chunk_ids:
+                    if self._bm25_indexer.remove_document(chunk_id):
+                        bm25_deleted += 1
+                
+                result.bm25_deleted = bm25_deleted
+                self._bm25_indexer.save(collection=doc_collection)
+                logger.info("BM25 [%s] 索引更新完成", doc_collection)
             except Exception as e:
-                msg = f"BM25 索引保存失败: {e}"
+                msg = f"BM25 [{doc_collection}] 删除失败: {e}"
                 errors.append(msg)
                 logger.error(msg)
 

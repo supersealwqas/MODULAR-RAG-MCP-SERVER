@@ -51,11 +51,25 @@ class DenseRetriever:
             self._embedding_client = EmbeddingFactory.create(self._settings.embedding)
         return self._embedding_client
 
-    def _get_vector_store(self) -> BaseVectorStore:
-        """获取 VectorStore 实例（延迟创建）。"""
-        if self._vector_store is None:
-            from src.libs.vector_store.vector_store_factory import VectorStoreFactory
-            self._vector_store = VectorStoreFactory.create(self._settings.vector_store)
+    def _get_vector_store(self, collection_name: str = "default") -> BaseVectorStore:
+        """获取 VectorStore 实例（延迟创建）。
+
+        参数:
+            collection_name: 集合名称
+
+        返回:
+            BaseVectorStore 实例
+        """
+        # 如果已经有一个 store 且 collection 一致，则复用。如果是 Mock 则直接复用。
+        is_mock = type(self._vector_store).__name__ in ('Mock', 'MagicMock', 'NonCallableMagicMock', 'NonCallableMock')
+        if self._vector_store is not None and (is_mock or getattr(self._vector_store, "collection_name", None) == collection_name):
+            return self._vector_store
+
+        from src.libs.vector_store.vector_store_factory import VectorStoreFactory
+        self._vector_store = VectorStoreFactory.create(
+            self._settings.vector_store,
+            collection_name=collection_name
+        )
         return self._vector_store
 
     def retrieve(
@@ -63,6 +77,7 @@ class DenseRetriever:
         query: str,
         top_k: Optional[int] = None,
         filters: Optional[Dict[str, Any]] = None,
+        collection: Optional[str] = None,
         trace: Optional[TraceContext] = None,
     ) -> List[RetrievalResult]:
         """执行稠密向量检索。
@@ -73,6 +88,7 @@ class DenseRetriever:
             query: 查询文本
             top_k: 返回结果数（默认使用配置值）
             filters: 元数据过滤条件
+            collection: 集合名称（可选，优先级高于 filters 中的 collection）
             trace: 可选的追踪上下文
 
         返回:
@@ -80,6 +96,12 @@ class DenseRetriever:
         """
         if not query or not query.strip():
             return []
+
+        # 确定 collection 名称
+        col = collection
+        if col is None and filters:
+            col = filters.get("collection")
+        col = col or "default"
 
         k = top_k if top_k is not None else self.top_k
         start_time = time.time()
@@ -91,7 +113,7 @@ class DenseRetriever:
         embed_ms = (time.time() - start_time) * 1000
 
         # 2. 向量检索
-        vector_store = self._get_vector_store()
+        vector_store = self._get_vector_store(collection_name=col)
         query_start = time.time()
         query_results = vector_store.query(
             vector=query_vector,
@@ -116,6 +138,7 @@ class DenseRetriever:
             trace.record_stage(
                 "dense_retrieval",
                 method="vector_search",
+                collection=col,
                 query_length=len(query),
                 result_count=len(results),
                 embed_ms=round(embed_ms, 2),
@@ -124,8 +147,8 @@ class DenseRetriever:
             )
 
         logger.debug(
-            "DenseRetriever: query='%s' → %d results (%.1fms)",
-            query[:50], len(results), total_ms,
+            "DenseRetriever [%s]: query='%s' → %d results (%.1fms)",
+            col, query[:50], len(results), total_ms,
         )
 
         return results

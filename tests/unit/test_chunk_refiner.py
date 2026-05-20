@@ -57,6 +57,7 @@ def _make_settings_stub(use_llm: bool = False) -> Settings:
         rerank=MagicMock(),
         evaluation=MagicMock(),
         observability=MagicMock(),
+        pipeline=MagicMock(),
     )
 
 

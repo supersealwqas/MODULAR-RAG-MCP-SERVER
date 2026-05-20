@@ -144,6 +144,11 @@ class TestDataService:
             ),
         ]
         service._document_manager = mock_dm
+        mock_dm._file_integrity.list_processed.return_value = [
+            {"collection": "test"},
+            {"collection": "default"},
+            {"collection": "test"},
+        ]
 
         result = service.list_collections()
 

@@ -41,6 +41,7 @@ class FileIntegrityChecker(ABC):
         self,
         file_hash: str,
         file_path: str,
+        collection: str = "default",
         file_size: int = 0,
         chunk_count: int = 0,
     ) -> None:
@@ -49,6 +50,7 @@ class FileIntegrityChecker(ABC):
         参数:
             file_hash: 文件的 SHA256 哈希值
             file_path: 文件路径
+            collection: 集合名称
             file_size: 文件大小（字节）
             chunk_count: 产出的 chunk 数量
         """
@@ -156,6 +158,7 @@ class SQLiteIntegrityChecker(FileIntegrityChecker):
                 CREATE TABLE IF NOT EXISTS ingestion_history (
                     file_hash TEXT PRIMARY KEY,
                     file_path TEXT NOT NULL,
+                    collection TEXT DEFAULT 'default',
                     file_size INTEGER DEFAULT 0,
                     status TEXT NOT NULL CHECK(status IN ('success', 'failed', 'processing')),
                     processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -163,11 +166,20 @@ class SQLiteIntegrityChecker(FileIntegrityChecker):
                     chunk_count INTEGER DEFAULT 0
                 )
             """)
+            # 如果表已存在但没有 collection 列，则添加（简单迁移）
+            try:
+                conn.execute("ALTER TABLE ingestion_history ADD COLUMN collection TEXT DEFAULT 'default'")
+            except sqlite3.OperationalError:
+                pass
+
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_status ON ingestion_history(status)
             """)
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_processed_at ON ingestion_history(processed_at)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_collection ON ingestion_history(collection)
             """)
 
     def should_skip(self, file_hash: str) -> bool:
@@ -183,6 +195,7 @@ class SQLiteIntegrityChecker(FileIntegrityChecker):
         self,
         file_hash: str,
         file_path: str,
+        collection: str = "default",
         file_size: int = 0,
         chunk_count: int = 0,
     ) -> None:
@@ -191,17 +204,18 @@ class SQLiteIntegrityChecker(FileIntegrityChecker):
         with self._get_conn() as conn:
             conn.execute(
                 """
-                INSERT INTO ingestion_history (file_hash, file_path, file_size, status, processed_at, chunk_count)
-                VALUES (?, ?, ?, 'success', ?, ?)
+                INSERT INTO ingestion_history (file_hash, file_path, collection, file_size, status, processed_at, chunk_count)
+                VALUES (?, ?, ?, ?, 'success', ?, ?)
                 ON CONFLICT(file_hash) DO UPDATE SET
                     file_path = excluded.file_path,
+                    collection = excluded.collection,
                     file_size = excluded.file_size,
                     status = 'success',
                     processed_at = excluded.processed_at,
                     error_msg = NULL,
                     chunk_count = excluded.chunk_count
                 """,
-                (file_hash, file_path, file_size, now, chunk_count),
+                (file_hash, file_path, collection, file_size, now, chunk_count),
             )
 
     def mark_failed(self, file_hash: str, file_path: str, error_msg: str) -> None:
@@ -243,7 +257,7 @@ class SQLiteIntegrityChecker(FileIntegrityChecker):
         """列出所有已成功处理的记录。"""
         with self._get_conn() as conn:
             rows = conn.execute(
-                "SELECT file_hash, file_path, file_size, processed_at, chunk_count "
+                "SELECT file_hash, file_path, collection, file_size, processed_at, chunk_count "
                 "FROM ingestion_history WHERE status = 'success' ORDER BY processed_at DESC"
             ).fetchall()
             return [dict(row) for row in rows]

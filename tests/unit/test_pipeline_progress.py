@@ -70,20 +70,20 @@ class FakeBatchProcessor:
 class FakeVectorUpserter:
     """Fake 向量写入器。"""
 
-    def upsert(self, records, trace=None):
+    def upsert(self, records, collection=None, trace=None, **kwargs):
         return len(records)
 
-    def delete(self, chunk_ids, trace=None):
+    def delete(self, chunk_ids, collection=None, trace=None, **kwargs):
         return len(chunk_ids)
 
 
 class FakeBM25Indexer:
     """Fake BM25 索引器。"""
 
-    def build(self, records, trace=None):
+    def build(self, records, trace=None, **kwargs):
         pass
 
-    def save(self, path=None):
+    def save(self, path=None, collection=None, **kwargs):
         return "fake_path"
 
     def get_vocabulary_size(self):

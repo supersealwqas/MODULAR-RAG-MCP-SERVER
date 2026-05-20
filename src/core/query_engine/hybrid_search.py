@@ -140,6 +140,12 @@ class HybridSearch:
         k = top_k if top_k is not None else self.top_k
         start_time = time.time()
 
+        # 确定 collection
+        col = None
+        if filters:
+            col = filters.get("collection")
+        col = col or "default"
+
         # 1. 查询预处理
         query_processor = self._get_query_processor()
         processed = query_processor.process(query, filters=filters, trace=trace)
@@ -148,7 +154,7 @@ class HybridSearch:
         dense_retriever = self._get_dense_retriever()
         try:
             dense_results = dense_retriever.retrieve(
-                query, top_k=k, trace=trace,
+                query, top_k=k, filters=filters, collection=col, trace=trace,
             )
         except Exception as e:
             logger.warning("DenseRetriever 失败，降级到空结果: %s", e)
@@ -158,7 +164,7 @@ class HybridSearch:
         sparse_retriever = self._get_sparse_retriever()
         try:
             sparse_results = sparse_retriever.retrieve(
-                processed.keywords, top_k=k, trace=trace,
+                processed.keywords, top_k=k, collection=col, trace=trace,
             )
         except Exception as e:
             logger.warning("SparseRetriever 失败，降级到空结果: %s", e)
@@ -195,6 +201,7 @@ class HybridSearch:
         if trace:
             trace.record_stage(
                 "hybrid_search",
+                method="hybrid",
                 query_length=len(query),
                 dense_count=len(dense_results),
                 sparse_count=len(sparse_results),

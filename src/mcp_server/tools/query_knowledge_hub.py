@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict, Optional
 
@@ -38,34 +39,15 @@ def _get_reranker(settings: Settings) -> Reranker:
     return _reranker
 
 
-async def query_knowledge_hub(
+def _search_sync(
     query: str,
-    top_k: int = 10,
-    collection: Optional[str] = None,
-    settings: Optional[Settings] = None,
+    top_k: int,
+    filters: dict,
+    settings: Settings,
 ) -> Dict[str, Any]:
-    """查询知识库，返回最相关的文档片段。
-
-    参数:
-        query: 查询文本
-        top_k: 返回结果数量（默认 10）
-        collection: 限定检索集合（可选）
-        settings: Settings 实例（可选，不传则自动加载）
-
-    返回:
-        MCP Tool 响应字典，包含 Markdown 文本和结构化引用
-    """
-    logger.info("query_knowledge_hub 被调用: query=%s, top_k=%d, collection=%s", query, top_k, collection)
-
-    # 加载配置
-    if settings is None:
-        from src.core.settings import load_settings
-        settings = load_settings()
-
-    # 构建过滤条件
-    filters = {}
-    if collection:
-        filters["collection"] = collection
+    """同步执行检索（在线程池中运行，避免阻塞事件循环）。"""
+    logger.info("query_knowledge_hub 被调用: query=%s, top_k=%d, collection=%s",
+                query, top_k, filters.get("collection"))
 
     # 执行检索
     trace = TraceContext()
@@ -105,3 +87,42 @@ async def query_knowledge_hub(
     logger.info("查询 '%s' 返回 %d 条结果", query, len(results))
 
     return response
+
+
+async def query_knowledge_hub(
+    query: str,
+    top_k: int = 10,
+    collection: Optional[str] = None,
+    settings: Optional[Settings] = None,
+) -> Dict[str, Any]:
+    """查询知识库，返回最相关的文档片段。
+
+    参数:
+        query: 查询文本
+        top_k: 返回结果数量（默认 10）
+        collection: 限定检索集合（可选）
+        settings: Settings 实例（可选，不传则自动加载）
+
+    返回:
+        MCP Tool 响应字典，包含 Markdown 文本和结构化引用
+    """
+    # 加载配置
+    if settings is None:
+        from src.core.settings import load_settings
+        settings = load_settings()
+
+    # 构建过滤条件
+    filters = {}
+    if collection:
+        filters["collection"] = collection
+
+    # 在线程池中执行同步检索，避免阻塞 asyncio 事件循环
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        _search_sync,
+        query,
+        top_k,
+        filters,
+        settings,
+    )

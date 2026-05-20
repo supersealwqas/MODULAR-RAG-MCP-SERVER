@@ -89,19 +89,23 @@ class FakeVectorUpserter:
     def __init__(self) -> None:
         self.call_count = 0
         self.last_records: Optional[List[ChunkRecord]] = None
+        self.last_collection: Optional[str] = None
 
     def upsert(
         self,
         records: List[ChunkRecord],
+        collection: str = "default",
         trace: Optional[TraceContext] = None,
     ) -> int:
         self.call_count += 1
         self.last_records = records
+        self.last_collection = collection
         return len(records)
 
     def delete(
         self,
         chunk_ids: List[str],
+        collection: str = "default",
         trace: Optional[TraceContext] = None,
     ) -> int:
         return len(chunk_ids)
@@ -113,7 +117,10 @@ class FakeBM25Indexer:
     def __init__(self) -> None:
         self.build_count = 0
         self.save_count = 0
+        self.load_count = 0
+        self.add_count = 0
         self.last_records: Optional[List[ChunkRecord]] = None
+        self.last_collection: Optional[str] = None
         self._vocab_size = 0
 
     def build(
@@ -129,9 +136,22 @@ class FakeBM25Indexer:
                 terms.update(r.sparse_vector.keys())
         self._vocab_size = len(terms)
 
-    def save(self, path: Optional[str] = None) -> str:
+    def add_documents(
+        self,
+        records: List[ChunkRecord],
+        trace: Optional[TraceContext] = None,
+    ) -> None:
+        self.add_count += 1
+        self.last_records = records
+
+    def save(self, collection: str = "default", path: Optional[str] = None) -> str:
         self.save_count += 1
+        self.last_collection = collection
         return path or "fake_path"
+
+    def load(self, collection: str = "default", path: Optional[str] = None) -> None:
+        self.load_count += 1
+        self.last_collection = collection
 
     def get_vocabulary_size(self) -> int:
         return self._vocab_size
@@ -141,7 +161,7 @@ class FakeIntegrityChecker:
     """Fake 文件完整性检查器，基于内存记录。"""
 
     def __init__(self) -> None:
-        self._processed: Dict[str, str] = {}
+        self._processed: Dict[str, dict] = {}
         self._hash_cache: Dict[str, str] = {}
 
     def compute_hash(self, file_path: str) -> str:
@@ -151,22 +171,28 @@ class FakeIntegrityChecker:
         return self._hash_cache[file_path]
 
     def should_skip(self, file_hash: str) -> bool:
-        return self._processed.get(file_hash) == "success"
+        return self._processed.get(file_hash, {}).get("status") == "success"
 
     def mark_success(
         self,
         file_hash: str,
         file_path: str,
+        collection: str = "default",
         file_size: int = 0,
         chunk_count: int = 0,
     ) -> None:
-        self._processed[file_hash] = "success"
+        self._processed[file_hash] = {
+            "status": "success",
+            "file_path": file_path,
+            "collection": collection,
+            "chunk_count": chunk_count,
+        }
 
     def mark_failed(self, file_hash: str, file_path: str, error_msg: str) -> None:
-        self._processed[file_hash] = "failed"
+        self._processed[file_hash] = {"status": "failed"}
 
     def get_status(self, file_hash: str) -> Optional[str]:
-        return self._processed.get(file_hash)
+        return self._processed.get(file_hash, {}).get("status")
 
     def remove_record(self, file_hash: str) -> bool:
         if file_hash in self._processed:
@@ -176,9 +202,15 @@ class FakeIntegrityChecker:
 
     def list_processed(self) -> list:
         return [
-            {"file_hash": h, "status": s}
-            for h, s in self._processed.items()
-            if s == "success"
+            {
+                "file_hash": h, 
+                "status": "success",
+                "file_path": d.get("file_path"),
+                "collection": d.get("collection"),
+                "chunk_count": d.get("chunk_count"),
+            }
+            for h, d in self._processed.items()
+            if d.get("status") == "success"
         ]
 
 
@@ -294,7 +326,8 @@ class TestPipelineRun:
         assert fakes["loader"].call_count == 1
         assert fakes["batch_processor"].call_count == 1
         assert fakes["vector_upserter"].call_count == 1
-        assert fakes["bm25_indexer"].build_count == 1
+        # 可能调用 build 或 add_documents
+        assert fakes["bm25_indexer"].build_count + fakes["bm25_indexer"].add_count == 1
         assert fakes["bm25_indexer"].save_count == 1
 
     def test_pipeline_loader_receives_correct_args(self):

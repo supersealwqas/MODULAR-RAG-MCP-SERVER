@@ -3104,14 +3104,14 @@ dashboard:
 
 ## 阶段 I：端到端验收与文档收口（目标：开箱即用的"可复现"工程）
 
-### I1：E2E：MCP Client 侧调用模拟
+### I1：E2E：MCP Client 侧调用模拟 [x]
 - **目标**：实现 `tests/e2e/test_mcp_client.py`：以子进程启动 server，模拟 tools/list + tools/call。
 - **修改文件**：
   - `tests/e2e/test_mcp_client.py`
 - **验收标准**：完整走通 query_knowledge_hub 并返回 citations。
 - **测试方法**：`pytest -q tests/e2e/test_mcp_client.py`。
 
-### I2：E2E：Dashboard 冒烟测试
+### I2：E2E：Dashboard 冒烟测试 [x]
 - **目标**：验证 Dashboard 各页面在有数据时可正常渲染、无 Python 异常。
 - **修改文件**：
   - `tests/e2e/test_dashboard_smoke.py`（新增）
@@ -3121,7 +3121,7 @@ dashboard:
 - **验收标准**：所有页面冒烟测试通过。
 - **测试方法**：`pytest -q tests/e2e/test_dashboard_smoke.py`。
 
-### I3：完善 README（运行说明 + 测试说明 + MCP 配置 + Dashboard 使用）
+### I3：完善 README（运行说明 + 测试说明 + MCP 配置 + Dashboard 使用） [x]
 - **目标**：让新用户能在 10 分钟内跑通 ingest + query + dashboard + tests，并能在 Copilot/Claude 中使用。
 - **修改文件**：
   - `README.md`
@@ -3134,7 +3134,7 @@ dashboard:
   - **常见问题**：API Key 配置、依赖安装、连接问题排查
 - **测试方法**：按 README 手动走一遍。
 
-### I4：清理接口一致性（契约测试补齐）
+### I4：清理接口一致性（契约测试补齐） [x]
 - **目标**：为关键抽象（VectorStore / Reranker / Evaluator / DocumentManager）补齐契约测试。
 - **修改文件**：
   - `tests/unit/test_vector_store_contract.py`（补齐 delete_by_metadata 边界）
@@ -3143,7 +3143,7 @@ dashboard:
 - **验收标准**：`pytest -q` 全绿，且 contract tests 覆盖主要输入输出形状。
 - **测试方法**：`pytest -q`。
 
-### I5：全链路 E2E 验收
+### I5：全链路 E2E 验收 [x]
 - **目标**：执行完整的端到端验收流程：ingest → query via MCP → Dashboard 可视化 → evaluate。
 - **修改文件**：无新文件，验收已有功能
 - **验收标准**：

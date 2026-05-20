@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Dict, List, Optional
 
 from src.core.trace.trace_context import TraceContext
@@ -56,6 +57,8 @@ class Fusion:
         """
         if not rankings:
             return []
+
+        start_time = time.time()
 
         # 确定使用的权重（优先使用调用时传入的权重）
         active_weights = weights if weights is not None else self.weights
@@ -109,6 +112,8 @@ class Fusion:
         if top_k is not None:
             results = results[:top_k]
 
+        total_ms = (time.time() - start_time) * 1000
+
         if trace:
             trace.record_stage(
                 "fusion",
@@ -117,6 +122,7 @@ class Fusion:
                 weights=valid_weights,
                 input_rankings=len(valid_rankings),
                 output_count=len(results),
+                elapsed_ms=round(total_ms, 2),
             )
 
         logger.debug(

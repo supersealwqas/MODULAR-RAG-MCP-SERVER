@@ -24,7 +24,9 @@ from src.ingestion.document_manager import (
 @pytest.fixture
 def mock_chroma():
     """Mock ChromaDB 向量存储。"""
-    return MagicMock()
+    mock = MagicMock()
+    mock.collection_name = "default"
+    return mock
 
 
 @pytest.fixture
@@ -55,13 +57,30 @@ def mock_integrity():
 
 
 @pytest.fixture
-def manager(mock_chroma, mock_bm25, mock_image_storage, mock_integrity):
+def mock_settings():
+    """Mock 全局配置。"""
+    settings = MagicMock()
+    settings.vector_store.persist_directory = "data/db/chroma"
+    settings.vector_store.provider = "chroma"
+    return settings
+
+
+@pytest.fixture(autouse=True)
+def patch_vector_store_factory(mock_chroma):
+    """全局 Patch VectorStoreFactory，防止测试中创建真实实例。"""
+    with patch("src.libs.vector_store.vector_store_factory.VectorStoreFactory.create", return_value=mock_chroma):
+        yield
+
+
+@pytest.fixture
+def manager(mock_chroma, mock_bm25, mock_image_storage, mock_integrity, mock_settings):
     """创建 DocumentManager 实例（注入 mock 依赖）。"""
     return DocumentManager(
         chroma_store=mock_chroma,
         bm25_indexer=mock_bm25,
         image_storage=mock_image_storage,
         file_integrity=mock_integrity,
+        settings=mock_settings,
     )
 
 
@@ -85,6 +104,7 @@ class TestListDocuments:
             {
                 "file_hash": "abc123",
                 "file_path": "/path/to/doc.pdf",
+                "collection": "test",
                 "file_size": 1024,
                 "processed_at": "2026-05-19 10:00:00",
                 "chunk_count": 5,
@@ -111,6 +131,7 @@ class TestListDocuments:
             {
                 "file_hash": "hash1",
                 "file_path": "/path/doc1.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19 10:00:00",
                 "chunk_count": 3,
@@ -118,6 +139,7 @@ class TestListDocuments:
             {
                 "file_hash": "hash2",
                 "file_path": "/path/doc2.pdf",
+                "collection": "default",
                 "file_size": 200,
                 "processed_at": "2026-05-19 11:00:00",
                 "chunk_count": 7,
@@ -138,6 +160,7 @@ class TestListDocuments:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 10,
@@ -156,6 +179,7 @@ class TestListDocuments:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 3,
@@ -178,6 +202,7 @@ class TestListDocuments:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 5,
@@ -210,13 +235,14 @@ class TestGetDocumentDetail:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "test",
                 "file_size": 1024,
                 "processed_at": "2026-05-19",
                 "chunk_count": 2,
             }
         ]
         mock_chroma.get_by_metadata.side_effect = [
-            # 第一次调用: _query_document_chunks_info
+            # 第一次调用: list_documents 中的查询
             [
                 {"id": "c1", "metadata": {"collection": "test"}},
                 {"id": "c2", "metadata": {"collection": "test"}},
@@ -243,6 +269,7 @@ class TestGetDocumentDetail:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 1,
@@ -306,6 +333,7 @@ class TestDeleteDocument:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 0,
@@ -327,6 +355,7 @@ class TestDeleteDocument:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 3,
@@ -354,6 +383,7 @@ class TestDeleteDocument:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 2,
@@ -378,6 +408,7 @@ class TestDeleteDocument:
             {
                 "file_hash": "abc",
                 "file_path": "/path/doc.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 1,
@@ -416,6 +447,7 @@ class TestGetCollectionStats:
             {
                 "file_hash": "h1",
                 "file_path": "/doc1.pdf",
+                "collection": "default",
                 "file_size": 100,
                 "processed_at": "2026-05-19",
                 "chunk_count": 5,
@@ -423,6 +455,7 @@ class TestGetCollectionStats:
             {
                 "file_hash": "h2",
                 "file_path": "/doc2.pdf",
+                "collection": "default",
                 "file_size": 200,
                 "processed_at": "2026-05-19",
                 "chunk_count": 3,

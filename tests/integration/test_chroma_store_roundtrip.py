@@ -264,20 +264,32 @@ class TestChromaStorePersistence:
             collection_name="collection_a",
             persist_directory=tmp_chroma_dir,
         )
+        record_a = VectorRecord(id="a1", vector=[1.0, 0.0], text="A文档", metadata={})
+        store_a.upsert([record_a])
+        assert store_a.count() == 1
+        
+        # 显式删除和垃圾回收以释放 SQLite 文件锁
+        del store_a
+        import gc
+        gc.collect()
+
         store_b = ChromaStore(
             collection_name="collection_b",
             persist_directory=tmp_chroma_dir,
         )
-
-        record_a = VectorRecord(id="a1", vector=[1.0, 0.0], text="A文档", metadata={})
         record_b = VectorRecord(id="b1", vector=[1.0, 0.0], text="B文档", metadata={})
-
-        store_a.upsert([record_a])
         store_b.upsert([record_b])
-
-        assert store_a.count() == 1
         assert store_b.count() == 1
 
+        del store_b
+        gc.collect()
+
+        # 重新加载 A 验证隔离性
+        store_a = ChromaStore(
+            collection_name="collection_a",
+            persist_directory=tmp_chroma_dir,
+        )
+        assert store_a.count() == 1
         results_a = store_a.query(vector=[1.0, 0.0], top_k=10)
         assert len(results_a) == 1
         assert results_a[0].text == "A文档"

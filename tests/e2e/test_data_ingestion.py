@@ -159,6 +159,7 @@ def _make_settings() -> Settings:
         rerank=RerankConfig(),
         evaluation=EvaluationConfig(),
         observability=ObservabilityConfig(),
+        pipeline=MagicMock(),
     )
 
 

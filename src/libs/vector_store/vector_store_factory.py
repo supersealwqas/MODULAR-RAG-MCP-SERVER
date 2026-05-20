@@ -36,11 +36,12 @@ class VectorStoreFactory:
     """VectorStore 实例工厂，根据配置创建对应的向量存储实例。"""
 
     @staticmethod
-    def create(config: VectorStoreConfig, **kwargs) -> BaseVectorStore:
+    def create(config: VectorStoreConfig, collection_name: Optional[str] = None, **kwargs) -> BaseVectorStore:
         """根据配置创建 VectorStore 实例。
 
         参数:
             config: VectorStoreConfig 配置对象，来自 settings.yaml
+            collection_name: 集合名称（可选，优先级高于 kwargs 中的同名参数）
             **kwargs: 其他提供者特定参数
 
         返回:
@@ -56,6 +57,9 @@ class VectorStoreFactory:
                 f"未知的向量存储提供者: '{config.provider}'，"
                 f"可用提供者: {available}"
             )
+
+        if collection_name:
+            kwargs["collection_name"] = collection_name
 
         cls = _VECTOR_STORE_REGISTRY[provider]
         return cls(

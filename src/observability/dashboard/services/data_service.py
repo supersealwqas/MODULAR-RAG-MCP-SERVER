@@ -54,6 +54,7 @@ class DataService:
                 bm25_indexer=bm25_indexer,
                 image_storage=image_storage,
                 file_integrity=file_integrity,
+                settings=settings,
             )
         return self._document_manager
 
@@ -109,6 +110,12 @@ class DataService:
             集合名称列表
         """
         manager = self._get_document_manager()
-        docs = manager.list_documents()
-        collections = sorted(set(d.collection for d in docs))
-        return collections
+        # 从 FileIntegrity 获取所有处理过的文件及其集合
+        processed = manager._file_integrity.list_processed()
+        collections = set()
+        for p in processed:
+            collections.add(p.get("collection", "default"))
+
+        # 始终包含 default
+        collections.add("default")
+        return sorted(list(collections))

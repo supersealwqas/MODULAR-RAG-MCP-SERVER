@@ -149,6 +149,7 @@ class Reranker:
         if trace:
             trace.record_stage(
                 "reranker",
+                method=self._rerank_config.provider if not fallback else "fallback",
                 fallback=fallback,
                 input_count=len(candidates),
                 output_count=len(results),

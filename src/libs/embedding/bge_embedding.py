@@ -52,6 +52,7 @@ class BGEEmbedding(BaseEmbedding):
         """延迟加载 FlagEmbedding 模型。
 
         首次调用 embed 时加载模型，避免启动时占用过多内存。
+        先检查路径是否存在，再导入 FlagEmbedding（避免不必要的 C 扩展加载）。
 
         异常:
             ImportError: 未安装 FlagEmbedding 时抛出
@@ -61,6 +62,17 @@ class BGEEmbedding(BaseEmbedding):
         if self._embedding_model is not None:
             return
 
+        # 先确定并检查模型路径（避免不必要的 FlagEmbedding 导入）
+        model_path = self.model_path
+        if not model_path:
+            model_path = self.model
+
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"BGE 模型路径不存在: {model_path}，"
+                f"请确保模型已下载到指定位置。"
+            )
+
         try:
             from FlagEmbedding import BGEM3FlagModel
         except ImportError as e:
@@ -68,18 +80,6 @@ class BGEEmbedding(BaseEmbedding):
                 f"FlagEmbedding 导入失败: {e}\n"
                 f"请确保已安装: uv pip install FlagEmbedding"
             ) from e
-
-        # 确定模型路径
-        model_path = self.model_path
-        if not model_path:
-            model_path = self.model
-
-        # 检查路径是否存在
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(
-                f"BGE 模型路径不存在: {model_path}，"
-                f"请确保模型已下载到指定位置。"
-            )
 
         try:
             self._embedding_model = BGEM3FlagModel(

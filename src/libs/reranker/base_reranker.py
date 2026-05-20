@@ -107,6 +107,8 @@ class NoneReranker(BaseReranker):
             ))
 
         if top_k is not None:
+            if top_k <= 0:
+                return []
             results = results[:top_k]
 
         return results

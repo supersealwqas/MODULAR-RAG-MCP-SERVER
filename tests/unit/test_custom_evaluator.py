@@ -53,9 +53,10 @@ class TestComputeHitRate:
         """无检索结果时应返回 0.0。"""
         assert compute_hit_rate([], ["a"]) == 0.0
 
-    def test_k_zero(self):
-        """k=0 时应返回 0.0。"""
+    def test_k_zero_or_negative(self):
+        """k <= 0 时应返回 0.0。"""
         assert compute_hit_rate(["a", "b"], ["a"], k=0) == 0.0
+        assert compute_hit_rate(["a", "b"], ["a"], k=-1) == 0.0
 
     def test_duplicate_retrieved_ids(self):
         """检索结果有重复时应正常处理。"""
@@ -124,9 +125,10 @@ class TestComputePrecisionAtK:
         assert compute_precision_at_k(["a", "b", "c"], ["c"], k=2) == 0.0
         assert compute_precision_at_k(["a", "b", "c"], ["c"], k=3) == pytest.approx(1.0 / 3.0)
 
-    def test_k_zero(self):
-        """k=0 时应返回 0.0。"""
+    def test_k_zero_or_negative(self):
+        """k <= 0 时应返回 0.0。"""
         assert compute_precision_at_k(["a", "b"], ["a"], k=0) == 0.0
+        assert compute_precision_at_k(["a", "b"], ["a"], k=-1) == 0.0
 
     def test_empty_retrieved(self):
         """无检索结果时应返回 0.0。"""
@@ -258,6 +260,14 @@ class TestCustomEvaluator:
         result = evaluator.evaluate_single(case)
         assert result.metrics["hit_rate"] == 0.0
         assert result.metrics["mrr"] == 0.0
+
+    def test_evaluate_empty_cases(self):
+        """空测试用例列表应返回空报告。"""
+        evaluator = CustomEvaluator(k=5)
+        report = evaluator.evaluate([])
+        assert report.total_cases == 0
+        assert report.summary == {}
+        assert len(report.results) == 0
 
 
 # --- EvaluatorFactory 测试 ---

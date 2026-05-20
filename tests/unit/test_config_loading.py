@@ -19,6 +19,7 @@ from src.core.settings import (
     RerankConfig,
     EvaluationConfig,
     ObservabilityConfig,
+    PipelineConfig,
 )
 
 
@@ -134,6 +135,7 @@ class TestValidateSettings:
             rerank=RerankConfig(),
             evaluation=EvaluationConfig(),
             observability=ObservabilityConfig(),
+            pipeline=PipelineConfig(),
         )
         validate_settings(settings)  # 不应抛出异常
 
@@ -150,6 +152,7 @@ class TestValidateSettings:
             rerank=RerankConfig(),
             evaluation=EvaluationConfig(),
             observability=ObservabilityConfig(),
+            pipeline=PipelineConfig(),
         )
         with pytest.raises(ValueError, match="llm.provider"):
             validate_settings(settings)
@@ -167,6 +170,7 @@ class TestValidateSettings:
             rerank=RerankConfig(),
             evaluation=EvaluationConfig(),
             observability=ObservabilityConfig(),
+            pipeline=PipelineConfig(),
         )
         with pytest.raises(ValueError) as exc_info:
             validate_settings(settings)
@@ -195,6 +199,7 @@ class TestSettingsDataclasses:
             rerank=RerankConfig(),
             evaluation=EvaluationConfig(),
             observability=ObservabilityConfig(),
+            pipeline=PipelineConfig(),
         )
         assert hasattr(settings, "llm")
         assert hasattr(settings, "ollama")

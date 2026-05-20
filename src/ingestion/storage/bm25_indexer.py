@@ -202,16 +202,21 @@ class BM25Indexer:
         sorted_results = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         return sorted_results[:top_k]
 
-    def save(self, path: Optional[str] = None) -> str:
+    def save(self, collection: str = "default", path: Optional[str] = None) -> str:
         """持久化索引到文件。
 
         参数:
-            path: 保存路径（可选，默认 index_dir/bm25_index.pkl）
+            collection: 集合名称
+            path: 保存路径（可选，默认 index_dir/collection/bm25_index.pkl）
 
         返回:
             实际保存路径
         """
-        save_path = path or os.path.join(self.index_dir, _INDEX_FILE)
+        if path:
+            save_path = path
+        else:
+            save_path = os.path.join(self.index_dir, collection, _INDEX_FILE)
+
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
 
         data = {
@@ -229,16 +234,20 @@ class BM25Indexer:
         logger.info("BM25 索引已保存: %s", save_path)
         return save_path
 
-    def load(self, path: Optional[str] = None) -> None:
+    def load(self, collection: str = "default", path: Optional[str] = None) -> None:
         """从文件加载索引。
 
         参数:
-            path: 加载路径（可选，默认 index_dir/bm25_index.pkl）
+            collection: 集合名称
+            path: 加载路径（可选，默认 index_dir/collection/bm25_index.pkl）
 
         异常:
             FileNotFoundError: 索引文件不存在
         """
-        load_path = path or os.path.join(self.index_dir, _INDEX_FILE)
+        if path:
+            load_path = path
+        else:
+            load_path = os.path.join(self.index_dir, collection, _INDEX_FILE)
 
         if not os.path.exists(load_path):
             raise FileNotFoundError(f"BM25 索引文件不存在: {load_path}")

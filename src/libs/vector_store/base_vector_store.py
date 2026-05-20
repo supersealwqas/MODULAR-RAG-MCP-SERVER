@@ -143,3 +143,22 @@ class BaseVectorStore(ABC):
             记录字典列表，每个字典包含 id、text、metadata 字段
         """
         ...
+
+    def delete_by_metadata(self, filters: Dict[str, Any], **kwargs) -> int:
+        """根据元数据过滤条件删除记录。
+
+        默认实现：先调用 get_by_metadata 获取所有匹配记录的 ID，然后调用 delete。
+        子类如果支持更高效的原生按元数据删除操作，可以重写此方法。
+
+        参数:
+            filters: 过滤条件字典
+            **kwargs: 其他参数
+
+        返回:
+            成功删除的记录数
+        """
+        records = self.get_by_metadata(filters=filters, **kwargs)
+        ids = [record["id"] for record in records]
+        if not ids:
+            return 0
+        return self.delete(ids=ids, **kwargs)

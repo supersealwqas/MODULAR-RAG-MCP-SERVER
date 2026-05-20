@@ -214,16 +214,28 @@ class TestEvaluatorFactoryRagas:
         # 在 mock 环境下重新导入以触发注册
         import importlib
         import src.libs.evaluator.evaluator_factory as ef_module
-        importlib.reload(ef_module)
-
-        providers = ef_module.EvaluatorFactory.list_providers()
-        assert "ragas" in providers
+        backup = ef_module._EVALUATOR_REGISTRY.copy()
+        try:
+            importlib.reload(ef_module)
+            import src.observability.evaluation.ragas_evaluator as re_module
+            importlib.reload(re_module)
+            providers = ef_module.EvaluatorFactory.list_providers()
+            assert "ragas" in providers
+        finally:
+            ef_module._EVALUATOR_REGISTRY.update(backup)
 
     def test_create_ragas_evaluator(self, mock_ragas_modules):
         """EvaluatorFactory.create('ragas') 应返回 RagasEvaluator 实例。"""
         import importlib
         import src.libs.evaluator.evaluator_factory as ef_module
-        importlib.reload(ef_module)
+        backup = ef_module._EVALUATOR_REGISTRY.copy()
+        try:
+            importlib.reload(ef_module)
+            import src.observability.evaluation.ragas_evaluator as re_module
+            importlib.reload(re_module)
+            evaluator = ef_module.EvaluatorFactory.create("ragas")
+            assert evaluator.__class__.__name__ == "RagasEvaluator"
+        finally:
+            ef_module._EVALUATOR_REGISTRY.update(backup)
 
-        evaluator = ef_module.EvaluatorFactory.create("ragas")
-        assert evaluator.__class__.__name__ == "RagasEvaluator"
+

@@ -10,6 +10,7 @@ integrity → load → split → transform → encode → store
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol
@@ -293,16 +294,19 @@ class IngestionPipeline:
 
             # 阶段 6: 存储
             self._report_progress(on_progress, "store", 6, _TOTAL_STAGES)
-            stored_count = self._stage_store(records, trace, stage_times)
+            stored_count = self._stage_store(records, collection, trace, stage_times)
 
             # 注册图片到 ImageStorage 索引
             self._register_images(document, collection)
 
             # 标记成功
             integrity = self._get_integrity_checker()
+            file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
             integrity.mark_success(
                 file_hash=file_hash,
                 file_path=file_path,
+                collection=collection,
+                file_size=file_size,
                 chunk_count=len(chunks),
             )
 
@@ -512,6 +516,7 @@ class IngestionPipeline:
     def _stage_store(
         self,
         records: List[ChunkRecord],
+        collection: str,
         trace: Optional[TraceContext],
         stage_times: Dict[str, float],
     ) -> int:
@@ -520,14 +525,20 @@ class IngestionPipeline:
         try:
             # 6a: 向量写入
             upserter = self._get_vector_upserter()
-            stored = upserter.upsert(records, trace=trace)
-            logger.info("向量写入完成: %d 条", stored)
+            stored = upserter.upsert(records, collection=collection, trace=trace)
+            logger.info("VectorStore [%s] 写入完成: %d 条", collection, stored)
 
-            # 6b: BM25 索引
+            # 6b: BM25 索引 (支持增量)
             indexer = self._get_bm25_indexer()
-            indexer.build(records, trace=trace)
-            indexer.save()
-            logger.info("BM25 索引构建完成")
+            try:
+                indexer.load(collection=collection)
+                indexer.add_documents(records, trace=trace)
+            except (FileNotFoundError, Exception):
+                # 索引不存在或加载失败，则重新构建
+                indexer.build(records, trace=trace)
+
+            indexer.save(collection=collection)
+            logger.info("BM25 [%s] 索引构建完成", collection)
 
             if trace:
                 elapsed = (time.time() - stage_start) * 1000
@@ -538,6 +549,7 @@ class IngestionPipeline:
                 trace.record_stage(
                     "upsert",
                     method=method,
+                    collection=collection,
                     vector_count=stored,
                     vocabulary_size=indexer.get_vocabulary_size(),
                     elapsed_ms=round(elapsed, 2),

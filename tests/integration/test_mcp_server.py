@@ -3,12 +3,15 @@ MCP Server 集成测试
 
 通过子进程方式启动 MCP Server，验证 Stdio Transport 的协议行为。
 测试覆盖：initialize 握手、tools/list 工具列表、stdout/stderr 分离。
+
+修复：使用 stderr 后台排空线程防止管道缓冲区满导致死锁。
 """
 
 import json
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 
 def _send_json_rpc(proc, method: str, params: dict | None = None, req_id: int = 1) -> None:
@@ -40,9 +43,23 @@ def _read_response(proc, timeout: float = 10.0) -> dict | None:
     return None
 
 
+def _drain_stderr(proc: subprocess.Popen) -> threading.Thread:
+    """后台线程排空 stderr，防止管道缓冲区满导致死锁。"""
+    def _reader():
+        try:
+            for _ in proc.stderr:
+                pass
+        except (ValueError, OSError):
+            pass
+    t = threading.Thread(target=_reader, daemon=True)
+    t.start()
+    return t
+
+
 def _start_server() -> subprocess.Popen:
-    """启动 MCP Server 子进程（UTF-8 编码）。"""
-    return subprocess.Popen(
+    """启动 MCP Server 子进程（UTF-8 编码 + stderr 排空）。"""
+    cwd = str(Path(__file__).resolve().parents[2])
+    proc = subprocess.Popen(
         [sys.executable, "-m", "src.mcp_server.server"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -50,8 +67,10 @@ def _start_server() -> subprocess.Popen:
         text=True,
         encoding="utf-8",
         errors="replace",
-        cwd="d:\\AI\\my_AI_project\\MODULAR-RAG-MCP-SERVER",
+        cwd=cwd,
     )
+    _drain_stderr(proc)
+    return proc
 
 
 def test_server_initialize():
@@ -118,7 +137,28 @@ def test_server_tools_list():
 
 def test_server_stdio_separation():
     """验证 stdout 仅包含 MCP 消息，日志输出到 stderr。"""
-    proc = _start_server()
+    # 此测试需要单独捕获 stderr，不使用公共 _start_server 的排空线程
+    cwd = str(Path(__file__).resolve().parents[2])
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "src.mcp_server.server"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=cwd,
+    )
+    stderr_lines: list[str] = []
+
+    def _collect_stderr():
+        try:
+            for line in proc.stderr:
+                stderr_lines.append(line)
+        except (ValueError, OSError):
+            pass
+
+    threading.Thread(target=_collect_stderr, daemon=True).start()
     try:
         _send_json_rpc(proc, "initialize", {
             "protocolVersion": "2024-11-05",
@@ -128,12 +168,12 @@ def test_server_stdio_separation():
         resp = _read_response(proc)
         assert resp is not None
 
-        # 验证 stdout 每行都是合法 JSON-RPC
-        # （此时 stdout 中只有 initialize 响应，已经验证过）
-        # 关键检查：stderr 应包含日志输出
+        import time
+        time.sleep(0.5)
         proc.terminate()
         proc.wait(timeout=5)
-        stderr_output = proc.stderr.read()
+
+        stderr_output = "".join(stderr_lines)
         assert len(stderr_output) > 0, "stderr 没有日志输出，日志可能污染了 stdout"
     finally:
         if proc.poll() is None:
